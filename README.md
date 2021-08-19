@@ -7,12 +7,12 @@
 ## Make chain spec json
 * Make human readable json
 ```
-./target/release/<YOUR_APP> build-spec --chain staging --disable-default-bootnode > my-staging.json
+./target/release/ares-node build-spec --chain staging --disable-default-bootnode > my-staging.json
 
 ```
 * Make raw json
 ```
-./target/release/<YOUR_APP> build-spec --chain staging --raw  --disable-default-bootnode > my-staging-raw.json
+./target/release/ares-node build-spec --chain staging --raw  --disable-default-bootnode > my-staging-raw.json
 ```
 
 ## Generate a node key for your chain, can be generate with command
@@ -34,7 +34,7 @@ rm -rf /tmp/bootnode1 /tmp/validator*
 ```
 ### Start boot node
 ```
-./target/debug/substrate \
+./target/release/ares-node \
     --ws-external \
     --rpc-external \
     --rpc-cors=all \
@@ -49,7 +49,7 @@ rm -rf /tmp/bootnode1 /tmp/validator*
 ### Start no less than 3 validator nodes
 ```
 # Example, note that the port, ws-port and rpc-port are different on each node.
-./target/debug/substrate \
+./target/release/ares-node \
     --base-path  /tmp/validator1 \
     --chain my-staging-raw.json \
     --bootnodes  /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWGuNM14pnggJogJSUtJ8u1Quw9CuqwR6j5dr9SbFF57kP \
