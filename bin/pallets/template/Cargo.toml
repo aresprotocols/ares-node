@@ -18,12 +18,12 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 [dependencies.frame-support]
 default-features = false
 version = "3.0.0"
-path = "../../../../frame/support"
+path = "../../../frame/support"
 
 [dependencies.frame-system]
 default-features = false
 version = "3.0.0"
-path = "../../../../frame/system"
+path = "../../../frame/system"
 
 [dev-dependencies]
 serde = { version = "1.0.101" }
@@ -31,17 +31,17 @@ serde = { version = "1.0.101" }
 [dev-dependencies.sp-core]
 default-features = false
 version = "3.0.0"
-path = "../../../../primitives/core"
+path = "../../../primitives/core"
 
 [dev-dependencies.sp-io]
 default-features = false
 version = "3.0.0"
-path = "../../../../primitives/io"
+path = "../../../primitives/io"
 
 [dev-dependencies.sp-runtime]
 default-features = false
 version = "3.0.0"
-path = "../../../../primitives/runtime"
+path = "../../../primitives/runtime"
 
 
 [features]

@@ -22,6 +22,16 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
+/// Import the template pallet.
+pub use template;
+
+/// Configure the pallet template in pallets/template.
+impl template::Config for Runtime {
+	type Event = Event;
+}
+
+
+// ---
 
 use sp_std::prelude::*;
 use frame_support::{
@@ -1053,6 +1063,9 @@ construct_runtime!(
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
 		Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+
+		// TODO:: --- ares
+		TemplateModule: template::{Module, Call, Storage, Event<T>},
 	}
 );
 
