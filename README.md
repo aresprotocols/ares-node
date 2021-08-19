@@ -43,7 +43,6 @@ rm -rf /tmp/bootnode1 /tmp/validator*
     --base-path /tmp/bootnode1 \
     --chain my-staging-raw.json \
     --name bootnode1
-    --validator 
 ```
 
 ### Start no less than 3 validator nodes
@@ -75,7 +74,7 @@ curl http://<YOUR_IP>:<RPC_PORT>  -H "Content-Type:application/json;charset=utf-
     "method":"author_insertKey",
     "params": [
         "babe",
-        "blur pioneer frown science banana impose avoid law act strategy have bronze//1//babe",
+        "<Secret seed>",
         "0x1e876fa1b4bbb82785ea5670b7ce0976beaf7536b6a0cc05deba7a54ab709421"
     ]
 }
@@ -89,7 +88,7 @@ curl http://<YOUR_IP>:<RPC_PORT>  -H "Content-Type:application/json;charset=utf-
     "method":"author_insertKey",
     "params": [
         "babe",
-        "blur pioneer frown science banana impose avoid law act strategy have bronze//1//babe",
+        "<Secret seed>",
         "0x1e876fa1b4bbb82785ea5670b7ce0976beaf7536b6a0cc05deba7a54ab709421"
     ]
 }
@@ -103,7 +102,7 @@ curl http://<YOUR_IP>:<RPC_PORT>  -H "Content-Type:application/json;charset=utf-
     "method":"author_insertKey",
     "params": [
         "imon",
-        "blur pioneer frown science banana impose avoid law act strategy have bronze//1//im_online",
+        "<Secret seed>",
         "0x94ff4a3dcd40926a375e9ebd640972598f7cf372e745fc5727a8020864bcb850"
     ]
 }

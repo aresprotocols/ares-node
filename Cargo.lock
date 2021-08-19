@@ -4062,6 +4062,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "hex-literal",
  "node-primitives",
+ "pallet-ares",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4082,6 +4083,7 @@ dependencies = [
  "pallet-membership",
  "pallet-mmr",
  "pallet-multisig",
+ "pallet-ocw",
  "pallet-offences",
  "pallet-offences-benchmarking",
  "pallet-proxy",
@@ -4317,6 +4319,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
+]
+
+[[package]]
+name = "pallet-ares"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4854,6 +4871,23 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-ocw"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "lite-json",
+ "parity-scale-codec",
+ "parking_lot 0.11.1",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
 ]

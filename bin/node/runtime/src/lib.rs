@@ -22,17 +22,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-/// Import the template pallet.
-pub use template;
-
-/// Configure the pallet template in pallets/template.
-impl template::Config for Runtime {
-	type Event = Event;
-}
-
-
-// ---
-
 use sp_std::prelude::*;
 use frame_support::{
 	construct_runtime, parameter_types, debug, RuntimeDebug,
@@ -91,6 +80,11 @@ pub use pallet_balances::Call as BalancesCall;
 pub use frame_system::Call as SystemCall;
 #[cfg(any(feature = "std", test))]
 pub use pallet_staking::StakerStatus;
+
+/// Include part_*
+mod part_template;
+mod part_ares;
+mod part_ocw;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
@@ -1066,6 +1060,8 @@ construct_runtime!(
 
 		// TODO:: --- ares
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
+		AresModule: pallet_ares::{Module, Call, Storage, Event<T>},
+		OCWModule: pallet_ocw::{Module, Call, Storage, Event<T>},
 	}
 );
 
