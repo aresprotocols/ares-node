@@ -109,25 +109,3 @@ curl http://<YOUR_IP>:<RPC_PORT>  -H "Content-Type:application/json;charset=utf-
 }
 
 ```
-
-# 给每个验证人设置 Session Keys
-``` babe session
-curl http://localhost:9933  -H "Content-Type:application/json;charset=utf-8" -d "@babe1.curl"
-curl http://localhost:9936  -H "Content-Type:application/json;charset=utf-8" -d "@babe2.curl"
-curl http://localhost:9937  -H "Content-Type:application/json;charset=utf-8" -d "@babe3.curl"
-curl http://localhost:9938  -H "Content-Type:application/json;charset=utf-8" -d "@babe4.curl"
-```
-
-```grandpa session
-curl http://localhost:9933  -H "Content-Type:application/json;charset=utf-8" -d "@gran1.curl"
-curl http://localhost:9936  -H "Content-Type:application/json;charset=utf-8" -d "@gran2.curl"
-curl http://localhost:9937  -H "Content-Type:application/json;charset=utf-8" -d "@gran3.curl"
-curl http://localhost:9938  -H "Content-Type:application/json;charset=utf-8" -d "@gran4.curl"
-```
-
-```imonline session
-curl http://localhost:9933  -H "Content-Type:application/json;charset=utf-8" -d "@imonline1.curl"
-curl http://localhost:9936  -H "Content-Type:application/json;charset=utf-8" -d "@imonline2.curl"
-curl http://localhost:9937  -H "Content-Type:application/json;charset=utf-8" -d "@imonline3.curl"
-curl http://localhost:9938  -H "Content-Type:application/json;charset=utf-8" -d "@imonline4.curl"
-```
