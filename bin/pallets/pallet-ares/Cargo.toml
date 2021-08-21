@@ -1,0 +1,44 @@
+[package]
+authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+description = 'FRAME pallet template for defining custom runtime logic.'
+edition = '2018'
+homepage = 'https://substrate.dev'
+license = 'Unlicense'
+name = 'pallet-ares'
+repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
+version = '3.0.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+# alias "parity-scale-code" to "codec"
+#[dependencies.codec]
+#default-features = false
+#features = ['derive']
+#package = 'parity-scale-codec'
+#version = '2.0.0'
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive", "max-encoded-len"] }
+frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+frame-system = { version = "4.0.0-dev", default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-08'}
+sp-std = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-runtime = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+
+[dev-dependencies]
+sp-core = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-io = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-runtime = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+serde = { version = "1.0.101", default-features = false, features = ["derive"] }
+
+[features]
+default = ['std']
+std = [
+	"codec/std",
+    'pallet-balances/std',
+	"sp-std/std",
+	"sp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+]

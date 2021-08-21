@@ -1,0 +1,43 @@
+[package]
+name = "node-bench"
+version = "0.9.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Substrate node integration benchmarks."
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.8"
+node-primitives = { version = "2.0.0", path = "../primitives" }
+node-testing = { version = "3.0.0-dev", path = "../testing" }
+node-runtime = { version = "3.0.0-dev", path = "../runtime" }
+sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sc-client-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-runtime = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-state-machine = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+serde = "1.0.126"
+serde_json = "1.0.41"
+structopt = "0.3"
+derive_more = "0.99.2"
+kvdb = "0.10.0"
+kvdb-rocksdb = "0.12.0"
+sp-trie = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-core = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-consensus = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sc-basic-authorship = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-timestamp = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sp-tracing = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+hash-db = "0.15.2"
+tempfile = "3.1.0"
+fs_extra = "1"
+hex = "0.4.0"
+rand = { version = "0.7.2", features = ["small_rng"] }
+lazy_static = "1.4.0"
+parity-util-mem = { version = "0.10.0", default-features = false, features = ["primitive-types"] }
+parity-db = { version = "0.2.4" }
+sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+sc-transaction-pool-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+futures = { version = "0.3.4", features = ["thread-pool"] }
