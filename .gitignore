@@ -6,7 +6,7 @@ pwasm-alloc/target/
 pwasm-libc/target/
 pwasm-alloc/Cargo.lock
 pwasm-libc/Cargo.lock
-bin/node/runtime/wasm/target/
+node/runtime/wasm/target/
 **/*.will_del
 **/._*
 **/.criterion/

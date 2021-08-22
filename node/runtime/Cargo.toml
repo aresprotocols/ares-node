@@ -93,9 +93,9 @@ pallet-uniques = { version = "4.0.0-dev", default-features = false, git = "https
 pallet-vesting = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 
 # TODO:: Add pallets
-template = { version = "2.0.0", default-features = false, package = "pallet-template", path="../../pallets/template" }
-pallet-ares = { version = "3.0.0", default-features = false, package = "pallet-ares", path="../../pallets/pallet-ares" }
-pallet-ocw = { version = "3.0.0", default-features = false,  package = "pallet-ocw", path="../../pallets/pallet-ocw" }
+template = { version = "2.0.0", default-features = false, package = "pallet-template", path= "../../pallets/template" }
+pallet-ares = { version = "3.0.0", default-features = false, package = "pallet-ares", path= "../../pallets/pallet-ares" }
+pallet-ocw = { version = "3.0.0", default-features = false,  package = "pallet-ocw", path= "../../pallets/pallet-ocw" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }

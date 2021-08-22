@@ -17,7 +17,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate.gi
 
 node-runtime = { path = "../runtime" }
 node-primitives = { path = "../primitives" }
-node-cli = { path = "../../node/cli" }
+node-cli = { path = "../cli" }
 
 grandpa = { package = "sc-finality-grandpa", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
