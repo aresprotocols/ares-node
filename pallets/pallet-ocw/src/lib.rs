@@ -1,45 +1,4 @@
-// This file is part of Substrate.
 
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-//! <!-- markdown-link-check-disable -->
-//! # Offchain Worker Example Pallet
-//!
-//! The Offchain Worker Example: A simple pallet demonstrating
-//! concepts, APIs and structures common to most offchain workers.
-//!
-//! Run `cargo doc --package pallet-example-offchain-worker --open` to view this module's
-//! documentation.
-//!
-//! - [`Config`]
-//! - [`Call`]
-//! - [`Pallet`]
-//!
-//!
-//! ## Overview
-//!
-//! In this example we are going to build a very simplistic, naive and definitely NOT
-//! production-ready oracle for BTC/USD price.
-//! Offchain Worker (OCW) will be triggered after every block, fetch the current price
-//! and prepare either signed or unsigned transaction to feed the result back on chain.
-//! The on-chain logic will simply aggregate the results and store last `64` values to compute
-//! the average price.
-//! Additional logic in OCW is put in place to prevent spamming the network with both signed
-//! and unsigned transactions, and custom `UnsignedValidator` makes sure that there is only
-//! one unsigned transaction floating in the network.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_system::{
@@ -87,6 +46,7 @@ pub mod crypto {
 
 	app_crypto!(sr25519, KEY_TYPE);
 
+	// struct for test.
 	pub struct TestAuthId;
 	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature> for TestAuthId {
 		type RuntimeAppPublic = Public;
@@ -94,6 +54,7 @@ pub mod crypto {
 		type GenericPublic = sp_core::sr25519::Public;
 	}
 
+	// struct fro production
 	pub struct OcwAuthId;
 	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for OcwAuthId {
 		type RuntimeAppPublic = Public;
@@ -102,10 +63,6 @@ pub mod crypto {
 	}
 }
 
-// impl frame_system::offchain::SigningTypes for Runtime {
-//     type Public = <Signature as traits::Verify>::Signer;
-//     type Signature = Signature;
-// }
 
 pub use pallet::*;
 
