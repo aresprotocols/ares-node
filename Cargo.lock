@@ -5155,6 +5155,8 @@ dependencies = [
  "frame-system",
  "lite-json",
  "log",
+ "pallet-authorship",
+ "pallet-session",
  "parity-scale-codec",
  "sp-core",
  "sp-io",
