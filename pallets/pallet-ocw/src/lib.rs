@@ -21,7 +21,6 @@ use sp_std::vec::Vec;
 use lite_json::json::JsonValue;
 
 // -- Read auth id.
-// use super::KEY_TYPE;
 use sp_runtime::{
 	app_crypto::{app_crypto, sr25519},
 	traits::Verify,
@@ -74,7 +73,7 @@ pub mod crypto {
 
 	// struct fro production
 	pub struct OcwAuthId;
-	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for OcwAuthId {
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
 		type RuntimeAppPublic = Public;
 		type GenericSignature = sp_core::sr25519::Signature;
 		type GenericPublic = sp_core::sr25519::Public;
@@ -83,7 +82,11 @@ pub mod crypto {
 
 
 pub use pallet::*;
-use frame_support::sp_runtime::traits::IdentifyAccount;
+// use frame_support::sp_runtime::traits::IdentifyAccount;
+use sp_runtime::{
+	app_crypto::RuntimeAppPublic,
+	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
+};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -338,6 +341,7 @@ pub struct PricePayload<Public, BlockNumber> {
 	public: Public,
 }
 
+// TODO::如果不实现这个会如何？
 impl<T: SigningTypes> SignedPayload<T> for PricePayload<T::Public, T::BlockNumber> {
 	fn public(&self) -> T::Public {
 		self.public.clone()
@@ -354,11 +358,36 @@ enum TransactionType {
 
 impl<T: Config> Pallet<T> {
 
-	fn get_signle_account() -> Result<(), &'static str> {
-		let signer = Signer::<T, T::AuthorityId>::all_accounts();
+	fn get_single_account() -> Result<(), &'static str> {
 
-		<T::AuthorityId>::RuntimeAppPublic::all();
+		let signer = Signer::<T, T::AuthorityId>::all_accounts(); //::all_accounts();
+
+		// let vec = <T::AuthorityId>::RuntimeAppPublic::all();
+
 		// <<T as pallet::Config>::AuthorityId as AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>>::RuntimeAppPublic::all();
+
+		// crypto::TestAuthId::
+
+		let map_info =
+			<T::AuthorityId as AppCrypto<T::Public, T::Signature>>::RuntimeAppPublic::all()
+			.into_iter().enumerate().map(|(index, key)| {
+			let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
+			let public: T::Public = generic_public.into();
+			let account_id = public.clone().into_account();
+			(index, account_id, public)
+		});
+
+		// let map_info =
+		// 	<T::AuthorityId as AppCrypto<sp_core::sr25519::Public, sp_core::sr25519::Signature>>::RuntimeAppPublic::all()
+		// 		.into_iter().enumerate().map(|(index, key)| {
+		// 		let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
+		// 		let public: T::Public = generic_public.into();
+		// 		let account_id = public.clone().into_account();
+		// 		(index, account_id, public)
+		// 	});
+
+
+
 
 		if !signer.can_sign() {
 			return Err(
@@ -366,29 +395,6 @@ impl<T: Config> Pallet<T> {
 			)?
 		}
 
-		// // Make an external HTTP request to fetch the current price.
-		// // Note this call will block until response is received.
-		// let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
-		//
-		// // Using `send_signed_transaction` associated type we create and submit a transaction
-		// // representing the call, we've just created.
-		// // Submit signed will return a vector of results for all accounts that were found in the
-		// // local keystore with expected `KEY_TYPE`.
-		// let results = signer.send_signed_transaction(
-		// 	|_account| {
-		// 		// Received price is wrapped into a call to `submit_price` public function of this pallet.
-		// 		// This means that the transaction, when executed, will simply call that function passing
-		// 		// `price` as an argument.
-		// 		Call::submit_price(price)
-		// 	}
-		// );
-		//
-		// for (acc, res) in &results {
-		// 	match res {
-		// 		Ok(()) => log::info!("[{:?}] Submitted price of {} cents", acc.id, price),
-		// 		Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
-		// 	}
-		// }
 		Ok(())
 	}
 
