@@ -342,6 +342,50 @@ enum TransactionType {
 }
 
 impl<T: Config> Pallet<T> {
+
+	fn get_single_account() -> Result<(), &'static str> {
+
+		let signer = Signer::<T, T::AuthorityId>::all_accounts(); //::all_accounts();
+
+		// let vec = <T::AuthorityId>::RuntimeAppPublic::all();
+
+		// <<T as pallet::Config>::AuthorityId as AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>>::RuntimeAppPublic::all();
+
+		// crypto::TestAuthId::
+
+		let map_info =
+			<T::AuthorityId as AppCrypto<T::Public, T::Signature>>::RuntimeAppPublic::all()
+			.into_iter().enumerate().map(|(index, key)| {
+			let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
+			let public: T::Public = generic_public.into();
+			let account_id = public.clone().into_account();
+			(index, account_id, public)
+		});
+
+		// let map_info =
+		// 	<T::AuthorityId as AppCrypto<sp_core::sr25519::Public, sp_core::sr25519::Signature>>::RuntimeAppPublic::all()
+		// 		.into_iter().enumerate().map(|(index, key)| {
+		// 		let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
+		// 		let public: T::Public = generic_public.into();
+		// 		let account_id = public.clone().into_account();
+		// 		(index, account_id, public)
+		// 	});
+
+
+
+		// map_info.into_iter().map(|(index, account_id, public)| {
+		// 	println!("Acount_index : {:?}", index );
+		// });
+
+		if !signer.can_sign() {
+			return Err(
+				"No local accounts available. Consider adding one via `author_insertKey` RPC."
+			)?
+		}
+
+		Ok(())
+	}
+
 	/// Chooses which transaction type to send.
 	///
 	/// This function serves mostly to showcase `StorageValue` helper

@@ -193,39 +193,39 @@ impl Config for Test {
     type UnsignedPriority = UnsignedPriority;
 }
 
-// #[test]
-// fn get_single_account() {
-//     const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
-//     let (offchain, offchain_state) = testing::TestOffchainExt::new();
-//     let (pool, pool_state) = testing::TestTransactionPoolExt::new();
-//     let keystore = KeyStore::new();
-//     SyncCryptoStore::sr25519_generate_new(
-//         &keystore,
-//         crate::crypto::Public::ID,
-//         Some(&format!("{}/hunter1", PHRASE)),
-//     ).unwrap();
-//
-//     let mut t = sp_io::TestExternalities::default();
-//     t.register_extension(OffchainWorkerExt::new(offchain));
-//     t.register_extension(TransactionPoolExt::new(pool));
-//     t.register_extension(KeystoreExt(Arc::new(keystore)));
-//     // price_oracle_response(&mut offchain_state.write());
-//
-//     t.execute_with(|| {
-//         // when
-//         Example::get_single_account();
-//         assert!(true);
-//         // then
-//         // let tx = pool_state.write().transactions.pop().unwrap();
-//         // assert!(pool_state.read().transactions.is_empty());
-//         // let tx = Extrinsic::decode(&mut &*tx).unwrap();
-//         // assert_eq!(tx.signature.unwrap().0, 0);
-//         // assert_eq!(tx.call, Call::Example(crate::Call::submit_price(15523)));
-//
-//         // when
-//
-//     });
-// }
+#[test]
+fn get_single_account() {
+    const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
+    let (offchain, offchain_state) = testing::TestOffchainExt::new();
+    let (pool, pool_state) = testing::TestTransactionPoolExt::new();
+    let keystore = KeyStore::new();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        crate::crypto::Public::ID,
+        Some(&format!("{}/hunter1", PHRASE)),
+    ).unwrap();
+
+    let mut t = sp_io::TestExternalities::default();
+    t.register_extension(OffchainWorkerExt::new(offchain));
+    t.register_extension(TransactionPoolExt::new(pool));
+    t.register_extension(KeystoreExt(Arc::new(keystore)));
+    // price_oracle_response(&mut offchain_state.write());
+
+    t.execute_with(|| {
+        // when
+        Example::get_single_account();
+        assert!(true);
+        // then
+        // let tx = pool_state.write().transactions.pop().unwrap();
+        // assert!(pool_state.read().transactions.is_empty());
+        // let tx = Extrinsic::decode(&mut &*tx).unwrap();
+        // assert_eq!(tx.signature.unwrap().0, 0);
+        // assert_eq!(tx.call, Call::Example(crate::Call::submit_price(15523)));
+
+        // when
+
+    });
+}
 
 
 // #[test]
