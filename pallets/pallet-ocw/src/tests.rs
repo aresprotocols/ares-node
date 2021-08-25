@@ -252,21 +252,21 @@ fn get_single_account() {
     t.register_extension(TransactionPoolExt::new(pool));
     t.register_extension(KeystoreExt(Arc::new(keystore)));
 
-    price_oracle_response(&mut offchain_state.write());
+    // price_oracle_response(&mut offchain_state.write());
 
-    let price_payload = PricePayload {
-        block_number: 1,
-        price: 15523,
-        public: <Test as SigningTypes>::Public::from(public_key),
-    };
+    // let price_payload = PricePayload {
+    //     block_number: 1,
+    //     price: 15523,
+    //     public: <Test as SigningTypes>::Public::from(public_key),
+    // };
 
     // let signature = price_payload.sign::<crypto::TestAuthId>().unwrap();
     t.execute_with(|| {
 
-        // Example::get_single_account();
+        Example::get_single_account();
 
         // when
-        Example::fetch_price_and_send_unsigned_for_all_accounts(1).unwrap();
+        // Example::fetch_price_and_send_unsigned_for_all_accounts(1).unwrap();
         // then
         // let tx = pool_state.write().transactions.pop().unwrap();
         // let tx = Extrinsic::decode(&mut &*tx).unwrap();

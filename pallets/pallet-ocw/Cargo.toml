@@ -24,7 +24,7 @@ sp-std = { version = "4.0.0-dev", default-features = false, git = "https://githu
 lite-json = { version = "0.1", default-features = false }
 log = { version = "0.4.14", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
-pallet-session = { version = "4.0.0-dev", default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+pallet-session = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 
 [features]
 default = ["std"]

@@ -20,15 +20,6 @@ use codec::{Encode, Decode};
 use sp_std::vec::Vec;
 use lite_json::json::JsonValue;
 
-// -- Read auth id.
-use sp_runtime::{
-	app_crypto::{app_crypto, sr25519},
-	traits::Verify,
-	MultiSignature, MultiSigner,
-};
-use sp_core::sr25519::Signature as Sr25519Signature;
-// -- Read auth id end.
-
 // use frame_support::{
 // 	ensure, PalletId, RuntimeDebug,
 // 	dispatch::{Dispatchable, DispatchResult, GetDispatchInfo},
@@ -73,7 +64,7 @@ pub mod crypto {
 
 	// struct fro production
 	pub struct OcwAuthId;
-	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for OcwAuthId {
 		type RuntimeAppPublic = Public;
 		type GenericSignature = sp_core::sr25519::Signature;
 		type GenericPublic = sp_core::sr25519::Public;
@@ -82,11 +73,6 @@ pub mod crypto {
 
 
 pub use pallet::*;
-// use frame_support::sp_runtime::traits::IdentifyAccount;
-use sp_runtime::{
-	app_crypto::RuntimeAppPublic,
-	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
-};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -341,7 +327,6 @@ pub struct PricePayload<Public, BlockNumber> {
 	public: Public,
 }
 
-// TODO::如果不实现这个会如何？
 impl<T: SigningTypes> SignedPayload<T> for PricePayload<T::Public, T::BlockNumber> {
 	fn public(&self) -> T::Public {
 		self.public.clone()
@@ -357,47 +342,6 @@ enum TransactionType {
 }
 
 impl<T: Config> Pallet<T> {
-
-	fn get_single_account() -> Result<(), &'static str> {
-
-		let signer = Signer::<T, T::AuthorityId>::all_accounts(); //::all_accounts();
-
-		// let vec = <T::AuthorityId>::RuntimeAppPublic::all();
-
-		// <<T as pallet::Config>::AuthorityId as AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>>::RuntimeAppPublic::all();
-
-		// crypto::TestAuthId::
-
-		let map_info =
-			<T::AuthorityId as AppCrypto<T::Public, T::Signature>>::RuntimeAppPublic::all()
-			.into_iter().enumerate().map(|(index, key)| {
-			let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
-			let public: T::Public = generic_public.into();
-			let account_id = public.clone().into_account();
-			(index, account_id, public)
-		});
-
-		// let map_info =
-		// 	<T::AuthorityId as AppCrypto<sp_core::sr25519::Public, sp_core::sr25519::Signature>>::RuntimeAppPublic::all()
-		// 		.into_iter().enumerate().map(|(index, key)| {
-		// 		let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
-		// 		let public: T::Public = generic_public.into();
-		// 		let account_id = public.clone().into_account();
-		// 		(index, account_id, public)
-		// 	});
-
-
-
-
-		if !signer.can_sign() {
-			return Err(
-				"No local accounts available. Consider adding one via `author_insertKey` RPC."
-			)?
-		}
-
-		Ok(())
-	}
-
 	/// Chooses which transaction type to send.
 	///
 	/// This function serves mostly to showcase `StorageValue` helper
@@ -432,6 +376,7 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
+		log::debug!("RUN LIN 1 :: choose_transaction_type {:?}", res);
 
 		// The result of `mutate` call will give us a nested `Result` type.
 		// The first one matches the return of the closure passed to `mutate`, i.e.
@@ -470,14 +415,12 @@ impl<T: Config> Pallet<T> {
 	// TODO:: 获取价格并且发送一个签名交易
 	/// A helper function to fetch the price and send signed transaction.
 	fn fetch_price_and_send_signed() -> Result<(), &'static str> {
-
 		let signer = Signer::<T, T::AuthorityId>::all_accounts();
 		if !signer.can_sign() {
 			return Err(
 				"No local accounts available. Consider adding one via `author_insertKey` RPC."
 			)?
 		}
-
 		// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
@@ -813,7 +756,6 @@ impl<T: Config> Pallet<T> {
 	/// Add new price to the list.
 	fn add_price(who: T::AccountId, price: u32) {
 		log::info!("Adding to the average: {}", price);
-
 		<Prices<T>>::mutate(|prices| {
 			const MAX_LEN: usize = 64;
 
