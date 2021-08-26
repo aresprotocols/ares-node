@@ -5158,6 +5158,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-session",
  "parity-scale-codec",
+ "sp-application-crypto",
  "sp-core",
  "sp-io",
  "sp-keystore",

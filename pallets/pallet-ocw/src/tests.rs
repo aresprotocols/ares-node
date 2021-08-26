@@ -187,6 +187,7 @@ parameter_types! {
 impl Config for Test {
     type Event = Event;
     type AuthorityId = crypto::TestAuthId;
+    type AuthorityId2 = sr25519::AuthorityId;
     type Call = Call;
     type GracePeriod = GracePeriod;
     type UnsignedInterval = UnsignedInterval;

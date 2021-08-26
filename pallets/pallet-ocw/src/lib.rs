@@ -10,12 +10,7 @@ use frame_system::{
 };
 use frame_support::traits::Get;
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{
-	RuntimeDebug,
-	offchain::{http, Duration, storage::{MutateStorageError, StorageRetrievalError, StorageValueRef}},
-	traits::Zero,
-	transaction_validity::{InvalidTransaction, ValidTransaction, TransactionValidity},
-};
+use sp_runtime::{RuntimeDebug, offchain::{http, Duration, storage::{MutateStorageError, StorageRetrievalError, StorageValueRef}}, traits::Zero, transaction_validity::{InvalidTransaction, ValidTransaction, TransactionValidity}, RuntimeAppPublic, AccountId32};
 use codec::{Encode, Decode};
 use sp_std::vec::Vec;
 use lite_json::json::JsonValue;
@@ -72,7 +67,47 @@ pub mod crypto {
 }
 
 
+pub mod sr25519 {
+	use super::KEY_TYPE;
+	mod app_sr25519 {
+		use super::KEY_TYPE;
+		use sp_application_crypto::{app_crypto, sr25519};
+		app_crypto!(sr25519, KEY_TYPE);
+	}
+
+	sp_application_crypto::with_pair! {
+		/// An i'm online keypair using sr25519 as its crypto.
+		pub type AuthorityPair = app_sr25519::Pair;
+	}
+
+	/// An i'm online signature using sr25519 as its crypto.
+	pub type AuthoritySignature = app_sr25519::Signature;
+
+	/// An i'm online identifier using sr25519 as its crypto.
+	pub type AuthorityId = app_sr25519::Public;
+}
+
+pub mod sr25519_babe {
+	mod app_sr25519_babe {
+		use sp_application_crypto::{app_crypto, key_types::BABE, sr25519};
+		app_crypto!(sr25519, BABE);
+	}
+	sp_application_crypto::with_pair! {
+		/// An i'm online keypair using sr25519 as its crypto.
+		pub type AuthorityPair = app_sr25519_babe::Pair;
+	}
+	pub type AuthoritySignature = app_sr25519_babe::Signature;
+	pub type AuthorityId = app_sr25519_babe::Public;
+}
+
 pub use pallet::*;
+use sp_runtime::traits::IdentifyAccount;
+// use frame_support::sp_runtime::app_crypto::Ss58Codec;
+// use sp_core::crypto::{DeriveJunction, Pair, SecretStringError, Ss58Codec};
+// use sp_runtime::app_crypto::Ss58Codec;
+
+use frame_support::pallet_prelude::*;
+use frame_system::pallet_prelude::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -84,13 +119,20 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: CreateSignedTransaction<Call<Self>> + pallet_authorship::Config + frame_system::Config {
 		/// The identifier type for an offchain worker.
-		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature> ;
 
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// The overarching dispatch call type.
 		type Call: From<Call<Self>>;
+
+		/// ocw store key pair.
+		type AuthorityId2: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+
+		/// ocw store key pair.
+		type AuthorityIdOfBabe: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+
 
 		/// A grace period after we send transaction.
 		///
@@ -171,6 +213,23 @@ pub mod pallet {
 			if let Err(e) = res {
 				log::error!("Error offchain: {}", e);
 			}
+			let a = T::AuthorityId2::all();
+			log::info!("#### A #### {:?}, {:?}", a.clone(), a.len());
+			for i in a.iter() {
+				// let a: <T as frame_system::Config>::AccountId = i.into();
+				// log::info!("+++++++++ {:?}",  i.to_raw_vec());
+				log::info!("+++++++++ {:?}",  i);
+			}
+
+
+			// let b = T::AuthorityIdOfBabe::all();
+			// log::info!("#### B #### {:?}, {:?}", b.clone(), b.len());
+			// for i in b.iter() {
+			// 	// ensure_signed(i.into());
+			// 	// let a: <T as frame_system::Config>::AccountId = i.into();
+			// 	log::info!("+++++++++ {:?}",  i.to_raw_vec());
+			// }
+
 		}
 	}
 
@@ -241,6 +300,7 @@ pub mod pallet {
 			price_payload: PricePayload<T::Public, T::BlockNumber>,
 			_signature: T::Signature,
 		) -> DispatchResultWithPostInfo {
+
 			// This ensures that the function can only be called via unsigned transaction.
 			ensure_none(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
@@ -261,7 +321,6 @@ pub mod pallet {
 		NewPrice(u32, T::AccountId),
 	}
 
-	// 给 Pallet 实现不具签名交易的借口。
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -279,18 +338,14 @@ pub mod pallet {
 			if let Call::submit_price_unsigned_with_signed_payload(
 				ref payload, ref signature
 			) = call {
-
 				let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
 				if !signature_valid {
 					return InvalidTransaction::BadProof.into();
 				}
-				// TODO::返回一个有效签名的 TransactionValidity
 				Self::validate_transaction_parameters(&payload.block_number, &payload.price)
 			} else if let Call::submit_price_unsigned(block_number, new_price) = call {
-				// TODO::返回一个有效签名的 TransactionValidity
 				Self::validate_transaction_parameters(block_number, new_price)
 			} else {
-				// TODO::返回无效的交易，因为不惧签名的交易并不在列表中。
 				InvalidTransaction::Call.into()
 			}
 		}
@@ -304,7 +359,7 @@ pub mod pallet {
 	pub(super) type Prices<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn prices_trace)] // T::AuthorityId
+	#[pallet::getter(fn prices_trace)]
 	pub(super) type PricesTrace<T: Config> = StorageValue<_, Vec<(u32, T::AccountId, T::AccountId)>, ValueQuery>;
 
 
@@ -343,6 +398,25 @@ enum TransactionType {
 
 impl<T: Config> Pallet<T> {
 
+
+	// TODO::此种方式依赖 std 测试可以但是实际上无法执行。
+	fn get_session_account() -> Vec<sp_runtime::AccountId32>{
+		// sp_runtime::AccountId32::from_ss58check("13RDY9nrJpyTDBSUdBw12dGwhk19sGwsrVZ2bxkzYHBSagP2");
+
+		let mut resultVec:Vec<sp_runtime::AccountId32> = Vec::new();;
+		let a = T::AuthorityId2::all();
+		for i in a.iter() {
+			let mut u8_32:[u8;32] = [0;32] ;
+			for (index,x) in i.to_raw_vec().iter().enumerate() {
+				// println!("Hello, {:?},{:?}", index,x);
+				u8_32[index] = *x
+			}
+			let account = sp_runtime::AccountId32::new(u8_32);
+			resultVec.push(account);
+		}
+		resultVec
+	}
+
 	fn get_single_account() -> Result<(), &'static str> {
 
 		let signer = Signer::<T, T::AuthorityId>::all_accounts(); //::all_accounts();
@@ -353,14 +427,14 @@ impl<T: Config> Pallet<T> {
 
 		// crypto::TestAuthId::
 
-		let map_info =
-			<T::AuthorityId as AppCrypto<T::Public, T::Signature>>::RuntimeAppPublic::all()
-			.into_iter().enumerate().map(|(index, key)| {
-			let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
-			let public: T::Public = generic_public.into();
-			let account_id = public.clone().into_account();
-			(index, account_id, public)
-		});
+		// let map_info =
+		// 	<T::AuthorityId as AppCrypto<T::Public, T::Signature>>::RuntimeAppPublic::all()
+		// 	.into_iter().enumerate().map(|(index, key)| {
+		// 	let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
+		// 	let public: T::Public = generic_public.into();
+		// 	let account_id = public.clone().into_account();
+		// 	(index, account_id, public)
+		// });
 
 		// let map_info =
 		// 	<T::AuthorityId as AppCrypto<sp_core::sr25519::Public, sp_core::sr25519::Signature>>::RuntimeAppPublic::all()
@@ -371,11 +445,41 @@ impl<T: Config> Pallet<T> {
 		// 		(index, account_id, public)
 		// 	});
 
-
-
-		// map_info.into_iter().map(|(index, account_id, public)| {
-		// 	println!("Acount_index : {:?}", index );
+		// TODO::可以编译但是无法获取到数据
+		// let map_info =
+		// 	<T::AuthorityId as AppCrypto<T::Public, T::Signature>>::RuntimeAppPublic::all()
+		// 	.into_iter().enumerate().map(|(index, key)| {
+		// 	let generic_public = <T::AuthorityId as AppCrypto<T::Public, T::Signature>>::GenericPublic::from(key);
+		// 	let public: T::Public = generic_public.into();
+		// 	let account_id = public.clone().into_account();
+		// 	log::info!("account_id ===== {:?}", account_id.clone());
+		// 	// println!("account_id ===== {:?}", account_id.clone());
+		// 	(index, account_id, public)
 		// });
+
+
+
+		// * 可以读取的数据 FOR TEST
+		// let a = T::AuthorityId2::all();
+		// println!("######## {:?}", T::AuthorityId2::CRYPTO_ID);
+		// println!("######## {:?}, {:?}", a.clone(), a.len());
+		//
+		// for i in a.iter() {
+		// 	// let idu8 = .as_slice();
+		// 	// println!("Hello.{:?}",idu8);
+		//
+		// 	let mut u8_32:[u8;32] = [0;32] ;
+		// 	for (index,x) in i.to_raw_vec().iter().enumerate() {
+		// 		// println!("Hello, {:?},{:?}", index,x);
+		// 		u8_32[index] = *x
+		// 	}
+		//
+		// 	println!("U32-.{:?}",u8_32);
+		//
+		// 	let account = sp_runtime::AccountId32::new(u8_32);
+		// 	println!("+++++++++ raw_vec = {:?}", account.to_ss58check());
+		// 	// println!("+++++++++ raw_vec = {:?}", i.to_raw_vec());
+		// }
 
 		if !signer.can_sign() {
 			return Err(
@@ -700,8 +804,6 @@ impl<T: Config> Pallet<T> {
 		);
 
 		log::info!("RUN 3 . Go to fetch_price_of_ares ");
-
-
 		let pending = request
 			.deadline(deadline)
 			.send()
@@ -711,7 +813,7 @@ impl<T: Config> Pallet<T> {
 			.map_err(|e| {
 				log::info!("RUN 4.1 . INFO::{:?} ", e);
 				http::Error::DeadlineReached
-			})??; //TODO::到底看看出的是什么异常信息，需要打印看看
+			})??;
 		log::info!("RUN 5 . Go to fetch_price_of_ares ");
 		// Let's check the status code before we proceed to reading the response.
 		if response.code != 200 {
@@ -760,6 +862,8 @@ impl<T: Config> Pallet<T> {
 
 		let exp = price.fraction_length.checked_sub(2).unwrap_or(0);
 		Some(price.integer as u32 * 100 + (price.fraction / 10_u64.pow(exp)) as u32)
+
+
 	}
 
 
@@ -797,7 +901,7 @@ impl<T: Config> Pallet<T> {
 		Some(price.integer as u32 * 100 + (price.fraction / 10_u64.pow(exp)) as u32)
 	}
 
-	/// Add new price to the list.
+	/// TODO:: add_price
 	fn add_price(who: T::AccountId, price: u32) {
 		log::info!("Adding to the average: {}", price);
 		<Prices<T>>::mutate(|prices| {
@@ -810,15 +914,22 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		// TODO:: 添加trace 记录
+		// let mut session_account = Self::get_session_account();
+
+		// TODO::
 		<PricesTrace<T>>::mutate(|prices_trace| {
 			log::info!("-------- so bad ****** ?");
 			let author = <pallet_authorship::Pallet<T>>::author();
 			// OLD: who.clone()
 			log::info!("-------- why not in?");
 			log::info!("LIN:DEBUG price_trace {:?},{:?},{:?}", price.clone(), author.clone(), who.clone());
+			// log::info!("Session account:: {:?}", session_account.pop());
+			// AccountId32::new(author.into());
+			// <<T as frame_system::Config>::AccountId>;
 			prices_trace.push((price.clone(), author.clone(), who.clone()));
 		});
+
+		// sp_io::crypto::sr25519_public_keys;
 
 		let average = Self::average_price()
 			.expect("The average is not empty, because it was just mutated; qed");
