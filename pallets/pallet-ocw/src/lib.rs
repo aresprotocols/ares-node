@@ -104,6 +104,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use super::*;
+    use frame_system::Account;
 
     /// This pallet's configuration trait
     #[pallet::config]
@@ -149,8 +150,8 @@ pub mod pallet {
 
     #[pallet::hooks]
     // impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
-        sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+        where sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>
     {
         /// You can use `Local Storage` API to coordinate runs of the worker.
         fn offchain_worker(block_number: T::BlockNumber) {
@@ -194,7 +195,8 @@ pub mod pallet {
 
     /// A public part of the pallet.
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T>
+    {
         /// Submit new price to the list.
         ///
         /// This method is a public function of the module and can be called from within
@@ -238,14 +240,52 @@ pub mod pallet {
         pub fn submit_price_unsigned(
             origin: OriginFor<T>,
             _block_number: T::BlockNumber,
-            price: u32,
-            price_key: PriceKey,
-        ) -> DispatchResultWithPostInfo {
+            price_list: Vec<(PriceKey, u32)>,
+        ) -> DispatchResultWithPostInfo
+        {
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
 
-            // Add the price to the on-chain list, but mark it as coming from an empty address.
-            Self::add_price(Default::default(), price, price_key);
+
+            // call price worker, for test set it true else set it false.
+            let mut is_same = true;
+            let worker_ownerid_list = T::AuthorityAres::all();
+            for ownerid in worker_ownerid_list.iter() {
+                let mut a = [0u8; 32];
+                a[..].copy_from_slice(&ownerid.to_raw_vec());
+                // extract AccountId32 from store keys
+                let owner_account_id32 = AccountId32::new(a);
+                // get Block owner info
+                let block_author = <pallet_authorship::Pallet<T>>::author();
+
+                // let test_into: T::AccountId = owner_account_id32.into();
+
+                // let mut b = <[u8; 32]>::from(block_author).into();
+
+                // b = block_author.into();
+
+                // on debug!
+                log::info!("owner_account_id32 == block_author.into()");
+                // let test_into: AccountId32 = block_author.clone().into();
+                // log::info!("{:?} == {:?}", owner_account_id32.clone(), test_into);
+                // // debug end.
+                // if owner_account_id32 == block_author.into() {
+                //     is_same = true;
+                // }
+            }
+            //
+            // // Nodes with the right to increase prices
+            // if is_same {
+            //     match Self::ares_price_worker(block_number) {
+            //         Ok(v) => log::info!("Ares price at work : {:?}", v),
+            //         Err(e) => log::warn!("Ares price has a problem : {:?}", e),
+            //     }
+            // }
+
+            for (price_key, price) in price_list {
+                // Add the price to the on-chain list, but mark it as coming from an empty address.
+                Self::add_price(Default::default(), price, price_key);
+            }
 
             // now increment the block number at which we expect next unsigned transaction.
             let current_block = <system::Pallet<T>>::block_number();
@@ -254,24 +294,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-
-        // #[pallet::weight(0)]
-        // pub fn submit_price_unsigned_with_signed_payload (
-        // 	origin: OriginFor<T>,
-        // 	price_payload: PricePayload<T::Public, T::BlockNumber>,
-        // 	_signature: T::Signature,
-        // 	price_key: PriceKey
-        // ) -> DispatchResultWithPostInfo {
-        //
-        // 	// This ensures that the function can only be called via unsigned transaction.
-        // 	ensure_none(origin)?;
-        // 	// Add the price to the on-chain list, but mark it as coming from an empty address.
-        // 	Self::add_price(Default::default(), price_payload.price, price_key);
-        // 	// now increment the block number at which we expect next unsigned transaction.
-        // 	let current_block = <system::Pallet<T>>::block_number();
-        // 	<NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
-        // 	Ok(().into())
-        // }
     }
 
     /// Events for the pallet.
@@ -296,21 +318,8 @@ pub mod pallet {
             _source: TransactionSource,
             call: &Self::Call,
         ) -> TransactionValidity {
-            // Firstly let's check that we call the right function.
-            // if let Call::submit_price_unsigned_with_signed_payload(
-            // 	ref payload, ref signature, ref price_key
-            // ) = call {
-            // 	let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
-            // 	if !signature_valid {
-            // 		return InvalidTransaction::BadProof.into();
-            // 	}
-            // 	Self::validate_transaction_parameters(&payload.block_number, &payload.price)
-            // } else
-
-            if let Call::submit_price_unsigned(block_number, new_price, PriceKey::PRICE_KEY_IS_BTC) = call {
-                Self::validate_transaction_parameters_of_ares(block_number, new_price, PriceKey::PRICE_KEY_IS_BTC)
-            } else if let Call::submit_price_unsigned(block_number, new_price, PriceKey::PRICE_KEY_IS_ETH) = call {
-                Self::validate_transaction_parameters_of_ares(block_number, new_price, PriceKey::PRICE_KEY_IS_ETH)
+            if let Call::submit_price_unsigned(block_number, ref price_list) = call {
+                Self::validate_transaction_parameters_of_ares(block_number, price_list.to_vec())
             } else {
                 InvalidTransaction::Call.into()
             }
@@ -377,31 +386,35 @@ impl<T: Config> Pallet<T>
         }
 
 
-        let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, PriceKey::PRICE_KEY_IS_ETH);
+        let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, ); // PriceKey::PRICE_KEY_IS_ETH
         // TODO:: Add signed transaction method with save used
         if let Err(e) = res {
             log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 2: {:?}", e);
         }
 
-        // fetch price and then send unsigned transaction.
-        let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, PriceKey::PRICE_KEY_IS_BTC);
-        // TODO:: Add signed transaction method with save used
-        if let Err(e) = res {
-            log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 1: {:?}", e);
-        }
-
-
         Ok(())
     }
 
     // Submit price information without signature
-    fn fetch_ares_price_and_send_raw_unsigned(block_number: T::BlockNumber, price_key: PriceKey) -> Result<(), &'static str> {
+    fn fetch_ares_price_and_send_raw_unsigned(block_number: T::BlockNumber ) -> Result<(), &'static str> {
+
+        let mut price_key_list = Vec::new();
+        price_key_list.push(PriceKey::PRICE_KEY_IS_BTC);
+        price_key_list.push(PriceKey::PRICE_KEY_IS_ETH);
+
+        let mut price_list = Vec::new();
+        for price_key in price_key_list {
+            if let Ok(price) = Self::fetch_price_of_ares(price_key.clone()) {
+                // add price to price_list
+                price_list.push((price_key, price));
+            }
+        }
 
         // Make an external HTTP request to fetch the current price.
-        let price = Self::fetch_price_of_ares(price_key.clone()).map_err(|_| "ERROR:: Failed to fetch price of ares.")?;
+        // let price = Self::fetch_price_of_ares(price_key.clone()).map_err(|_| "ERROR:: Failed to fetch price of ares.")?;
 
         // Received price is wrapped into a call to `submit_price_unsigned` public function of this pallet.
-        let call = Call::submit_price_unsigned(block_number, price, price_key.clone());
+        let call = Call::submit_price_unsigned(block_number, price_list);
 
         // Now let's create a transaction out of this call and submit it to the pool.
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
@@ -507,7 +520,7 @@ impl<T: Config> Pallet<T>
     //
     fn add_price(who: T::AccountId, price: u32, price_key: PriceKey) {
 
-        let price_key_str = match price_key {
+        let key_str = match price_key {
             PriceKey::PRICE_KEY_IS_BTC => {
                 "btc_price"
             }
@@ -519,17 +532,7 @@ impl<T: Config> Pallet<T>
             }
         };
 
-        let price_key_str = price_key_str.as_bytes().to_vec();
-
-        // log::info!("Adding to the average: {}", price);
-        // <Prices<T>>::mutate(|prices| {
-        //     const MAX_LEN: usize = 64;
-        //     if prices.len() < MAX_LEN {
-        //         prices.push(price.clone());
-        //     } else {
-        //         prices[price as usize % MAX_LEN] = price.clone();
-        //     }
-        // });
+        let price_key_str = key_str.as_bytes().to_vec();
 
         // let price_key = "btc_price".as_bytes().to_vec();
         // 1. Check key exists
@@ -554,12 +557,12 @@ impl<T: Config> Pallet<T>
 
         // Get current block number for test.
         let current_block = <system::Pallet<T>>::block_number();
-        log::info!("======= DEBUG:: current blocknum : {:?}", current_block);
+        log::info!("======= DEBUG:: current blocknum : {:?}, {:?}", current_block, key_str);
 
         // let mut session_account = Self::get_session_account();
         <PricesTrace<T>>::mutate(|prices_trace| {
             let author = <pallet_authorship::Pallet<T>>::author();
-            log::info!("LIN:DEBUG price_trace {:?}, {:?},{:?},{:?}", current_block, price.clone(), author.clone(), who.clone());
+            log::info!("LIN:DEBUG price_trace {:?}, {:?}, {:?},{:?},{:?}", key_str, current_block, price.clone(), author.clone(), who.clone());
 
             // prices_trace.push((price.clone(), author.clone(), who.clone()));
 
@@ -574,7 +577,7 @@ impl<T: Config> Pallet<T>
 
         let average = Self::average_price(price_key_str.clone())
             .expect("The average is not empty, because it was just mutated; qed");
-        log::info!("LIN:DEBUG Current average price is: {}", average);
+        log::info!("LIN:DEBUG Current average price is: {} , {:?}", average, key_str);
 
         // here we are raising the NewPrice event
         Self::deposit_event(Event::NewPrice(price, who));
@@ -592,8 +595,7 @@ impl<T: Config> Pallet<T>
 
     fn validate_transaction_parameters_of_ares(
         block_number: &T::BlockNumber,
-        new_price: &u32,
-        price_key: PriceKey,
+        price_list: Vec<(PriceKey, u32)>,
     ) -> TransactionValidity {
         // Now let's check if the transaction has any chance to succeed.
         let next_unsigned_at = <NextUnsignedAt<T>>::get();
@@ -606,33 +608,16 @@ impl<T: Config> Pallet<T>
             return InvalidTransaction::Future.into();
         }
 
-        // TODO:: need check allow price_key on here.
-
-        // We prioritize transactions that are more far away from current average.
-
-        let price_key_str = match price_key {
-            PriceKey::PRICE_KEY_IS_BTC => {
-                "btc_price"
-            }
-            PriceKey::PRICE_KEY_IS_ETH => {
-                "eth_price"
-            }
-            PriceKey::PRICE_KEY_IS_NONE => {
-                "__none_price"
-            }
-        };
-
-        let avg_price = Self::average_price(price_key_str.as_bytes().to_vec())
-            .map(|price| if &price > new_price { price - new_price } else { new_price - price })
-            .unwrap_or(0);
 
         // TODO::This tag prefix need change.
-        ValidTransaction::with_tag_prefix("pallet-ocw::AresOffchainWorker")
+        ValidTransaction::with_tag_prefix("pallet-ocw::submit_price_unsigned")
             // We set base priority to 2**20 and hope it's included before any other
             // transactions in the pool. Next we tweak the priority depending on how much
             // it differs from the current average. (the more it differs the more priority it
             // has).
-            .priority(T::UnsignedPriority::get().saturating_add(avg_price as _))
+            // .priority(T::UnsignedPriority::get().saturating_add(avg_price as _))
+            .priority(T::UnsignedPriority::get())
+
             // This transaction does not require anything else to go before into the pool.
             // In theory we could require `previous_unsigned_at` transaction to go first,
             // but it's not necessary in our case.

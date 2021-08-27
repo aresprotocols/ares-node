@@ -288,13 +288,13 @@ fn should_submit_raw_unsigned_ares_owc_transaction_on_chain() {
 
     t.execute_with(|| {
         // when
-        Example::fetch_ares_price_and_send_raw_unsigned(1, PriceKey::PRICE_KEY_IS_BTC).unwrap();
+        Example::fetch_ares_price_and_send_raw_unsigned(1).unwrap();
         // then
         let tx = pool_state.write().transactions.pop().unwrap();
         assert!(pool_state.read().transactions.is_empty());
         let tx = Extrinsic::decode(&mut &*tx).unwrap();
         assert_eq!(tx.signature, None);
-        assert_eq!(tx.call, Call::Example(crate::Call::submit_price_unsigned(1, 5026137, PriceKey::PRICE_KEY_IS_BTC)));
+        assert_eq!(tx.call, Call::Example(crate::Call::submit_price_unsigned(1, vec![(PriceKey::PRICE_KEY_IS_BTC, 5026137)] )));
     });
 }
 
