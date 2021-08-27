@@ -121,6 +121,7 @@ pub mod pallet {
         /// ocw store key pair.
         type AuthorityAres: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 
+        // type AccountId: AccountId32;
 
         /// A grace period after we send transaction.
         ///
@@ -242,6 +243,7 @@ pub mod pallet {
             _block_number: T::BlockNumber,
             price_list: Vec<(PriceKey, u32)>,
         ) -> DispatchResultWithPostInfo
+
         {
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
@@ -258,6 +260,11 @@ pub mod pallet {
                 // get Block owner info
                 let block_author = <pallet_authorship::Pallet<T>>::author();
 
+                // let aaaa: <T as Config>:: = block_author.into();
+
+                // AccountId32::from(block_author);
+
+                // T::AccountId::
                 // let test_into: T::AccountId = owner_account_id32.into();
 
                 // let mut b = <[u8; 32]>::from(block_author).into();
