@@ -243,6 +243,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
+
             // Add the price to the on-chain list, but mark it as coming from an empty address.
             Self::add_price(Default::default(), price, price_key);
 
@@ -375,20 +376,20 @@ impl<T: Config> Pallet<T>
             return Err("Too early to send unsigned transaction of ares, on fetch_ares_price_and_send_raw_unsigned");
         }
 
+
+        let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, PriceKey::PRICE_KEY_IS_ETH);
+        // TODO:: Add signed transaction method with save used
+        if let Err(e) = res {
+            log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 2: {:?}", e);
+        }
+
         // fetch price and then send unsigned transaction.
         let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, PriceKey::PRICE_KEY_IS_BTC);
-        // let res = Self::fetch_price_and_send_raw_unsigned(block_number);
         // TODO:: Add signed transaction method with save used
         if let Err(e) = res {
             log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 1: {:?}", e);
         }
 
-        let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, PriceKey::PRICE_KEY_IS_ETH);
-        // let res = Self::fetch_price_and_send_raw_unsigned(block_number);
-        // TODO:: Add signed transaction method with save used
-        if let Err(e) = res {
-            log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 2: {:?}", e);
-        }
 
         Ok(())
     }
@@ -404,7 +405,7 @@ impl<T: Config> Pallet<T>
 
         // Now let's create a transaction out of this call and submit it to the pool.
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-            .map_err(|()| "Unable to submit unsigned transaction.")?;
+            .map_err(|()| "ERROR:: Unable to submit unsigned transaction.")?;
 
         Ok(())
     }
@@ -426,7 +427,7 @@ impl<T: Config> Pallet<T>
         };
 
         if "" == request_url {
-            log::info!("Cannot match area pricer url. ");
+            log::warn!("ERROR:: Cannot match area pricer url. ");
             return Err(http::Error::Unknown);
         }
 
@@ -441,13 +442,13 @@ impl<T: Config> Pallet<T>
             .map_err(|_| http::Error::IoError)?;
         let response = pending.try_wait(deadline)
             .map_err(|e| {
-                log::info!("ERROR:: The network cannot connect. http::Error::DeadlineReached == {:?} ", e);
+                log::warn!("ERROR:: The network cannot connect. http::Error::DeadlineReached == {:?} ", e);
                 http::Error::DeadlineReached
             })??;
         log::info!("The http server has returned a message.");
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
-            log::warn!("Unexpected status code: {}", response.code);
+            log::warn!("ERROR:: Unexpected status code: {}", response.code);
             return Err(http::Error::Unknown);
         }
         let body = response.body().collect::<Vec<u8>>();
