@@ -3,31 +3,22 @@
 use frame_system::{
     self as system,
     offchain::{
-        AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SendSignedTransaction,
-        SignedPayload, SigningTypes, Signer, SubmitTransaction,
+        AppCrypto, CreateSignedTransaction,
+        SignedPayload, SigningTypes, SubmitTransaction,
     },
 };
 use frame_support::traits::Get;
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{RuntimeDebug, offchain::{http, Duration, storage::{MutateStorageError, StorageRetrievalError, StorageValueRef}}, traits::Zero, transaction_validity::{InvalidTransaction, ValidTransaction, TransactionValidity}, RuntimeAppPublic, AccountId32};
+use sp_runtime::{RuntimeDebug, offchain::{http, Duration }, transaction_validity::{InvalidTransaction, ValidTransaction, TransactionValidity}, RuntimeAppPublic, AccountId32};
 use codec::{Encode, Decode};
 use sp_std::vec::Vec;
 use lite_json::json::JsonValue;
-
-
-// use frame_support::{
-// 	ensure, PalletId, RuntimeDebug,
-// 	dispatch::{Dispatchable, DispatchResult, GetDispatchInfo},
-// 	traits::{
-// 		Currency, ReservableCurrency, Get, ExistenceRequirement::KeepAlive, Randomness,
-// 	},
-// };
 
 #[cfg(test)]
 mod tests;
 
 /// The keys can be inserted manually via RPC (see `author_insertKey`).
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ares");
 
 #[derive(Eq, PartialEq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum PriceKey {
@@ -93,24 +84,20 @@ pub mod sr25519 {
     pub type AuthorityId = app_sr25519::Public;
 }
 
-pub mod sr25519_babe {
-    mod app_sr25519_babe {
-        use sp_application_crypto::{app_crypto, key_types::BABE, sr25519};
-        app_crypto!(sr25519, BABE);
-    }
-    sp_application_crypto::with_pair! {
-		/// An i'm online keypair using sr25519 as its crypto.
-		pub type AuthorityPair = app_sr25519_babe::Pair;
-	}
-    pub type AuthoritySignature = app_sr25519_babe::Signature;
-    pub type AuthorityId = app_sr25519_babe::Public;
-}
+// pub mod sr25519_babe {
+//     mod app_sr25519_babe {
+//         use sp_application_crypto::{app_crypto, key_types::BABE, sr25519};
+//         app_crypto!(sr25519, BABE);
+//     }
+//     sp_application_crypto::with_pair! {
+// 		/// An i'm online keypair using sr25519 as its crypto.
+// 		pub type AuthorityPair = app_sr25519_babe::Pair;
+// 	}
+//     pub type AuthoritySignature = app_sr25519_babe::Signature;
+//     pub type AuthorityId = app_sr25519_babe::Public;
+// }
 
 pub use pallet::*;
-
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
-use frame_support::sp_std::convert::TryFrom;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -131,7 +118,7 @@ pub mod pallet {
         type Call: From<Call<Self>>;
 
         /// ocw store key pair.
-        type AuthorityId2: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+        type AuthorityAres: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 
 
         /// A grace period after we send transaction.
@@ -174,9 +161,9 @@ pub mod pallet {
             // let average: Option<u32> = Self::average_price();
             // log::info!("--- offchain_worker parent_hash = {:?}, average = {:?}", parent_hash, average);
 
-            // call price worker
+            // call price worker, for test set it true else set it false.
             let mut is_same = true;
-            let worker_ownerid_list = T::AuthorityId2::all();
+            let worker_ownerid_list = T::AuthorityAres::all();
             for ownerid in worker_ownerid_list.iter() {
                 let mut a = [0u8; 32];
                 a[..].copy_from_slice(&ownerid.to_raw_vec());
@@ -190,7 +177,6 @@ pub mod pallet {
                 let test_into: AccountId32 = block_author.clone().into();
                 log::info!("{:?} == {:?}", owner_account_id32.clone(), test_into);
                 // debug end.
-
                 if owner_account_id32 == block_author.into() {
                     is_same = true;
                 }
@@ -198,7 +184,10 @@ pub mod pallet {
 
             // Nodes with the right to increase prices
             if is_same {
-                Self::ares_price_worker(block_number);
+                match Self::ares_price_worker(block_number) {
+                    Ok(v) => log::info!("Ares price at work : {:?}", v),
+                    Err(e) => log::warn!("Ares price has a problem : {:?}", e),
+                }
             }
         }
     }
@@ -374,13 +363,6 @@ impl<T: SigningTypes> SignedPayload<T> for PricePayload<T::Public, T::BlockNumbe
     }
 }
 
-enum TransactionType {
-    Signed,
-    UnsignedForAny,
-    UnsignedForAll,
-    Raw,
-    None,
-}
 
 impl<T: Config> Pallet<T>
 {
@@ -397,7 +379,14 @@ impl<T: Config> Pallet<T>
         // let res = Self::fetch_price_and_send_raw_unsigned(block_number);
         // TODO:: Add signed transaction method with save used
         if let Err(e) = res {
-            log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain: {:?}", e);
+            log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 1: {:?}", e);
+        }
+
+        let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number, PriceKey::PRICE_KEY_IS_ETH);
+        // let res = Self::fetch_price_and_send_raw_unsigned(block_number);
+        // TODO:: Add signed transaction method with save used
+        if let Err(e) = res {
+            log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 2: {:?}", e);
         }
 
         Ok(())
@@ -419,146 +408,19 @@ impl<T: Config> Pallet<T>
         Ok(())
     }
 
-    //
-    // /// A helper function to fetch the price, sign payload and send an unsigned transaction
-    // fn fetch_price_and_send_unsigned_for_any_account(block_number: T::BlockNumber) -> Result<(), &'static str> {
-    // 	// Make sure we don't fetch the price if unsigned transaction is going to be rejected
-    // 	// anyway.
-    // 	let next_unsigned_at = <NextUnsignedAt<T>>::get();
-    // 	if next_unsigned_at > block_number {
-    // 		return Err("Too early to send unsigned transaction on fetch_price_and_send_unsigned_for_any_account")
-    // 	}
-    //
-    // 	// Make an external HTTP request to fetch the current price.
-    // 	// Note this call will block until response is received.
-    // 	let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
-    //
-    // 	// -- Sign using any account
-    // 	let (_, result) = Signer::<T, T::AuthorityId>::any_account().send_unsigned_transaction(
-    // 		|account| PricePayload {
-    // 			price,
-    // 			block_number,
-    // 			public: account.public.clone()
-    // 		},
-    // 		|payload, signature| {
-    // 			Call::submit_price_unsigned_with_signed_payload(payload, signature)
-    // 		}
-    // 	).ok_or("No local accounts accounts available.")?;
-    // 	result.map_err(|()| "Unable to submit transaction")?;
-    //
-    // 	Ok(())
-    // }
-    //
-    // /// A helper function to fetch the price, sign payload and send an unsigned transaction
-    // fn fetch_price_and_send_unsigned_for_all_accounts(block_number: T::BlockNumber) -> Result<(), &'static str> {
-    // 	// Make sure we don't fetch the price if unsigned transaction is going to be rejected
-    // 	// anyway.
-    // 	let next_unsigned_at = <NextUnsignedAt<T>>::get();
-    // 	if next_unsigned_at > block_number {
-    // 		return Err("Too early to send unsigned transaction on fetch_price_and_send_unsigned_for_all_accounts")
-    // 	}
-    //
-    // 	// Make an external HTTP request to fetch the current price.
-    // 	// Note this call will block until response is received.
-    // 	let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
-    //
-    // 	// -- Sign using all accounts
-    // 	let transaction_results = Signer::<T, T::AuthorityId>::all_accounts()
-    // 		.send_unsigned_transaction(
-    // 			|account| PricePayload {
-    // 				price,
-    // 				block_number,
-    // 				public: account.public.clone()
-    // 			},
-    // 			|payload, signature| {
-    // 				Call::submit_price_unsigned_with_signed_payload(payload, signature)
-    // 			}
-    // 		);
-    // 	for (_account_id, result) in transaction_results.into_iter() {
-    // 		if result.is_err() {
-    // 			return Err("Unable to submit transaction");
-    // 		}
-    // 	}
-    //
-    // 	Ok(())
-    // }
-
-    // /// Fetch current price and return the result in cents.
-    // fn fetch_price() -> Result<u32, http::Error> {
-    // 	// We want to keep the offchain worker execution time reasonable, so we set a hard-coded
-    // 	// deadline to 2s to complete the external call.
-    // 	// You can also wait idefinitely for the response, however you may still get a timeout
-    // 	// coming from the host machine.
-    // 	let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-    // 	// Initiate an external HTTP GET request.
-    // 	// This is using high-level wrappers from `sp_runtime`, for the low-level calls that
-    // 	// you can find in `sp_io`. The API is trying to be similar to `reqwest`, but
-    // 	// since we are running in a custom WASM execution environment we can't simply
-    // 	// import the library here.
-    // 	let request = http::Request::get(
-    // 		"https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD"
-    // 	);
-    // 	log::info!("RUN X4 . Go to fetch_price_of_offchain ");
-    // 	// We set the deadline for sending of the request, note that awaiting response can
-    // 	// have a separate deadline. Next we send the request, before that it's also possible
-    // 	// to alter request headers or stream body content in case of non-GET requests.
-    // 	let pending = request
-    // 		.deadline(deadline)
-    // 		.send()
-    // 		.map_err(|_| http::Error::IoError)?;
-    //
-    // 	log::info!("RUN X5 . Go to fetch_price_of_offchain ");
-    // 	// The request is already being processed by the host, we are free to do anything
-    // 	// else in the worker (we can send multiple concurrent requests too).
-    // 	// At some point however we probably want to check the response though,
-    // 	// so we can block current thread and wait for it to finish.
-    // 	// Note that since the request is being driven by the host, we don't have to wait
-    // 	// for the request to have it complete, we will just not read the response.
-    // 	let response = pending.try_wait(deadline)
-    // 		.map_err(|_| http::Error::DeadlineReached)??;
-    // 	// Let's check the status code before we proceed to reading the response.
-    // 	if response.code != 200 {
-    // 		log::warn!("Unexpected status code: {}", response.code);
-    // 		return Err(http::Error::Unknown);
-    // 	}
-    //
-    // 	// Next we want to fully read the response body and collect it to a vector of bytes.
-    // 	// Note that the return object allows you to read the body in chunks as well
-    // 	// with a way to control the deadline.
-    // 	let body = response.body().collect::<Vec<u8>>();
-    //
-    // 	// Create a str slice from the body.
-    // 	let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
-    // 		log::warn!("No UTF8 body");
-    // 		http::Error::Unknown
-    // 	})?;
-    //
-    // 	let price = match Self::parse_price(body_str) {
-    // 		Some(price) => Ok(price),
-    // 		None => {
-    // 			log::warn!("Unable to extract price from the response: {:?}", body_str);
-    // 			Err(http::Error::Unknown)
-    // 		}
-    // 	}?;
-    //
-    // 	log::warn!("Got price: {} cents", price);
-    //
-    // 	Ok(price)
-    // }
-
     /// Fetch current price and return the result in cents.
     fn fetch_price_of_ares(price_key: PriceKey) -> Result<u32, http::Error> {
 
         // Choose the corresponding address.
-        let (request_url) = match price_key {
+        let request_url = match price_key {
             PriceKey::PRICE_KEY_IS_BTC => {
-                ("http://141.164.58.241:5566/api/getPartyPrice/btcusdt")
+                "http://141.164.58.241:5566/api/getPartyPrice/btcusdt"
             }
             PriceKey::PRICE_KEY_IS_ETH => {
-                ("http://141.164.58.241:5566/api/getPartyPrice/ethusdt")
+                "http://141.164.58.241:5566/api/getPartyPrice/ethusdt"
             }
             _ => {
-                ("")
+                ""
             }
         };
 
@@ -613,7 +475,7 @@ impl<T: Config> Pallet<T>
                 // find code root.
                 let (_, v_data) = obj.into_iter()
                     .find(|(k, _)| {
-                        let tmp_k = k.iter().copied();
+                        let _tmp_k = k.iter().copied();
                         k.iter().copied().eq("data".chars())
                     })?;
 
@@ -621,7 +483,7 @@ impl<T: Config> Pallet<T>
                 match v_data {
                     JsonValue::Object(obj) => {
                         let (_, v) = obj.into_iter().find(|(k, _)| {
-                            let tmp_k = k.iter().copied();
+                            // let tmp_k = k.iter().copied();
                             k.iter().copied().eq("price".chars())
                         })?;
 
@@ -643,19 +505,6 @@ impl<T: Config> Pallet<T>
     //
     fn add_price(who: T::AccountId, price: u32, price_key: PriceKey) {
 
-        // let mut price_key_str:Vec<u8> = Vec::new();
-        // (price_key_str) = match price_key {
-        // 	PriceKey::PRICE_KEY_IS_NONE => {
-        // 		("btc_price".as_bytes().to_vec())
-        // 	}
-        // 	PriceKey::PRICE_KEY_IS_ETH =>{
-        // 		("eth_price".as_bytes().to_vec())
-        // 	}
-        // 	PriceKey::PRICE_KEY_IS_BTC => {
-        // 		("__none_price".as_bytes().to_vec())
-        // 	}
-        // };
-
         let price_key_str = match price_key {
             PriceKey::PRICE_KEY_IS_BTC => {
                 "btc_price"
@@ -670,23 +519,22 @@ impl<T: Config> Pallet<T>
 
         let price_key_str = price_key_str.as_bytes().to_vec();
 
-
-        log::info!("Adding to the average: {}", price);
-        <Prices<T>>::mutate(|prices| {
-            const MAX_LEN: usize = 64;
-            if prices.len() < MAX_LEN {
-                prices.push(price.clone());
-            } else {
-                prices[price as usize % MAX_LEN] = price.clone();
-            }
-        });
+        // log::info!("Adding to the average: {}", price);
+        // <Prices<T>>::mutate(|prices| {
+        //     const MAX_LEN: usize = 64;
+        //     if prices.len() < MAX_LEN {
+        //         prices.push(price.clone());
+        //     } else {
+        //         prices[price as usize % MAX_LEN] = price.clone();
+        //     }
+        // });
 
         // let price_key = "btc_price".as_bytes().to_vec();
         // 1. Check key exists
         if <AresPrice<T>>::contains_key(price_key_str.clone()) {
             // get and reset .
             let mut old_price = <AresPrice<T>>::get(price_key_str.clone());
-            const MAX_LEN: usize = 10;
+            const MAX_LEN: usize = 50;
             if old_price.len() < MAX_LEN {
                 old_price.push(price.clone());
             } else {
@@ -713,7 +561,7 @@ impl<T: Config> Pallet<T>
 
             // prices_trace.push((price.clone(), author.clone(), who.clone()));
 
-            const MAX_LEN: usize = 5;
+            const MAX_LEN: usize = 50;
             let price_trace_len = prices_trace.len();
             if price_trace_len < MAX_LEN {
                 prices_trace.push((price.clone(), author.clone(), who.clone()));
@@ -722,73 +570,22 @@ impl<T: Config> Pallet<T>
             }
         });
 
-        let average = Self::average_price()
+        let average = Self::average_price(price_key_str.clone())
             .expect("The average is not empty, because it was just mutated; qed");
         log::info!("LIN:DEBUG Current average price is: {}", average);
+
         // here we are raising the NewPrice event
         Self::deposit_event(Event::NewPrice(price, who));
     }
 
     /// Calculate current average price.
-    fn average_price() -> Option<u32> {
-        let prices = <Prices<T>>::get();
+    fn average_price(price_key_str:Vec<u8>) -> Option<u32> {
+        let prices = <AresPrice<T>>::get(price_key_str.clone());
         if prices.is_empty() {
             None
         } else {
             Some(prices.iter().fold(0_u32, |a, b| a.saturating_add(*b)) / prices.len() as u32)
         }
-    }
-
-    fn validate_transaction_parameters(
-        block_number: &T::BlockNumber,
-        new_price: &u32,
-    ) -> TransactionValidity {
-        // Now let's check if the transaction has any chance to succeed.
-        let next_unsigned_at = <NextUnsignedAt<T>>::get();
-        if &next_unsigned_at > block_number {
-            return InvalidTransaction::Stale.into();
-        }
-        // Let's make sure to reject transactions from the future.
-        let current_block = <system::Pallet<T>>::block_number();
-        if &current_block < block_number {
-            return InvalidTransaction::Future.into();
-        }
-
-        // We prioritize transactions that are more far away from current average.
-        //
-        // Note this doesn't make much sense when building an actual oracle, but this example
-        // is here mostly to show off offchain workers capabilities, not about building an
-        // oracle.
-        let avg_price = Self::average_price()
-            .map(|price| if &price > new_price { price - new_price } else { new_price - price })
-            .unwrap_or(0);
-
-        ValidTransaction::with_tag_prefix("ExampleOffchainWorker")
-            // We set base priority to 2**20 and hope it's included before any other
-            // transactions in the pool. Next we tweak the priority depending on how much
-            // it differs from the current average. (the more it differs the more priority it
-            // has).
-            .priority(T::UnsignedPriority::get().saturating_add(avg_price as _))
-            // This transaction does not require anything else to go before into the pool.
-            // In theory we could require `previous_unsigned_at` transaction to go first,
-            // but it's not necessary in our case.
-            //.and_requires()
-            // We set the `provides` tag to be the same as `next_unsigned_at`. This makes
-            // sure only one transaction produced after `next_unsigned_at` will ever
-            // get to the transaction pool and will end up in the block.
-            // We can still have multiple transactions compete for the same "spot",
-            // and the one with higher priority will replace other one in the pool.
-            .and_provides(next_unsigned_at)
-            // The transaction is only valid for next 5 blocks. After that it's
-            // going to be revalidated by the pool.
-            .longevity(5)
-            // It's fine to propagate that transaction to other peers, which means it can be
-            // created even by nodes that don't produce blocks.
-            // Note that sometimes it's better to keep it for yourself (if you are the block
-            // producer), since for instance in some schemes others may copy your solution and
-            // claim a reward.
-            .propagate(true)
-            .build()
     }
 
     fn validate_transaction_parameters_of_ares(
@@ -810,16 +607,25 @@ impl<T: Config> Pallet<T>
         // TODO:: need check allow price_key on here.
 
         // We prioritize transactions that are more far away from current average.
-        //
-        // Note this doesn't make much sense when building an actual oracle, but this example
-        // is here mostly to show off offchain workers capabilities, not about building an
-        // oracle.
-        let avg_price = Self::average_price()
+
+        let price_key_str = match price_key {
+            PriceKey::PRICE_KEY_IS_BTC => {
+                "btc_price"
+            }
+            PriceKey::PRICE_KEY_IS_ETH => {
+                "eth_price"
+            }
+            PriceKey::PRICE_KEY_IS_NONE => {
+                "__none_price"
+            }
+        };
+
+        let avg_price = Self::average_price(price_key_str.as_bytes().to_vec())
             .map(|price| if &price > new_price { price - new_price } else { new_price - price })
             .unwrap_or(0);
 
         // TODO::This tag prefix need change.
-        ValidTransaction::with_tag_prefix("ExampleOffchainWorker_Ares")
+        ValidTransaction::with_tag_prefix("pallet-ocw::AresOffchainWorker")
             // We set base priority to 2**20 and hope it's included before any other
             // transactions in the pool. Next we tweak the priority depending on how much
             // it differs from the current average. (the more it differs the more priority it

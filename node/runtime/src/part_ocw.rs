@@ -14,13 +14,13 @@ impl pallet_ocw::Config for Runtime {
     type Event = Event;
     type Call = Call;
     type AuthorityId = pallet_ocw::crypto::OcwAuthId ;
-    type AuthorityId2 = pallet_ocw::sr25519::AuthorityId;
+    type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
     type GracePeriod = GracePeriod;
     type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
 }
 
-// TODO::发送具签名交易时所具备的信息
+//
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
     where
         Call: From<LocalCall>,
@@ -52,7 +52,7 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
         );
 
-        // TODO::给自己的一个数据做签名，签名后的数据叫做 raw_payload
+        // TODO::Sign one of your own data, the signed data is called raw_payload
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
                 log::warn!("Unable to create signed payload: {:?}", e);
@@ -64,7 +64,6 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
         Some((call, (address, signature.into(), extra)))
     }
 }
-
 
 impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as traits::Verify>::Signer;
