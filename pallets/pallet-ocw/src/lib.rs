@@ -101,10 +101,6 @@ pub mod sr25519_babe {
 }
 
 pub use pallet::*;
-use sp_runtime::traits::IdentifyAccount;
-// use frame_support::sp_runtime::app_crypto::Ss58Codec;
-// use sp_core::crypto::{DeriveJunction, Pair, SecretStringError, Ss58Codec};
-// use sp_runtime::app_crypto::Ss58Codec;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -163,49 +159,19 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Offchain Worker entry point.
-		///
-		/// By implementing `fn offchain_worker` you declare a new offchain worker.
-		/// This function will be called when the node is fully synced and a new best block is
-		/// succesfuly imported.
-		/// Note that it's not guaranteed for offchain workers to run on EVERY block, there might
-		/// be cases where some blocks are skipped, or for some the worker runs twice (re-orgs),
-		/// so the code should be able to handle that.
+	// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
+		sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>
+	{
+
 		/// You can use `Local Storage` API to coordinate runs of the worker.
 		fn offchain_worker(block_number: T::BlockNumber) {
-			// Note that having logs compiled to WASM may cause the size of the blob to increase
-			// significantly. You can use `RuntimeDebug` custom derive to hide details of the types
-			// in WASM. The `sp-api` crate also provides a feature `disable-logging` to disable
-			// all logging and thus, remove any logging from the WASM.
-			log::info!("Offchain OUT 1 :: current blocknumber is");
 
-			// Since off-chain workers are just part of the runtime code, they have direct access
-			// to the storage and other included pallets.
-			//
-			// We can easily import `frame_system` and retrieve a block hash of the parent block.
+			// parent_hash
 			let parent_hash = <system::Pallet<T>>::block_hash(block_number - 1u32.into());
-			log::debug!("Offchain OUT 2 ::Current block: {:?} (parent hash: {:?})", block_number, parent_hash);
 
-			// It's a good practice to keep `fn offchain_worker()` function minimal, and move most
-			// of the code to separate `impl` block.
-			// Here we call a helper function to calculate current average price.
 			// This function reads storage entries of the current state.
 			let average: Option<u32> = Self::average_price();
-			log::debug!("Offchain OUT 3 {:?}", average);
-
-			// For this example we are going to send both signed and unsigned transactions
-			// depending on the block number.
-			// Usually it's enough to choose one or the other.
-
-			// let should_send = Self::choose_transaction_type(block_number);
-			// let res = match should_send {
-			// 	TransactionType::Signed => Self::fetch_price_and_send_signed(),
-			// 	TransactionType::UnsignedForAny => Self::fetch_price_and_send_unsigned_for_any_account(block_number),
-			// 	TransactionType::UnsignedForAll => Self::fetch_price_and_send_unsigned_for_all_accounts(block_number),
-			// 	TransactionType::Raw => Self::fetch_price_and_send_raw_unsigned(block_number),
-			// 	TransactionType::None => Ok(()),
-			// };
 
 			let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number);
 			// let res = Self::fetch_price_and_send_raw_unsigned(block_number);
@@ -213,22 +179,24 @@ pub mod pallet {
 			if let Err(e) = res {
 				log::error!("Error offchain: {}", e);
 			}
+
 			let a = T::AuthorityId2::all();
 			log::info!("#### A #### {:?}, {:?}", a.clone(), a.len());
 			for i in a.iter() {
 				// let a: <T as frame_system::Config>::AccountId = i.into();
 				// log::info!("+++++++++ {:?}",  i.to_raw_vec());
 				log::info!("+++++++++ {:?}",  i);
+				let mut a = [0u8; 32];
+				a[..].copy_from_slice(&i.to_raw_vec());
+				// 这是读取到的本地的ID
+				let account_id = AccountId32::new(a);
+				// 这个是当前区块生成者的id
+				let author = <pallet_authorship::Pallet<T>>::author();
+				let test_into :AccountId32 = author.clone().into();
+				log::info!("=========== {:?}", account_id.clone() == author.clone().into());
+				log::info!("=========== {:?} .into. {:?}", account_id, test_into);
 			}
 
-
-			// let b = T::AuthorityIdOfBabe::all();
-			// log::info!("#### B #### {:?}, {:?}", b.clone(), b.len());
-			// for i in b.iter() {
-			// 	// ensure_signed(i.into());
-			// 	// let a: <T as frame_system::Config>::AccountId = i.into();
-			// 	log::info!("+++++++++ {:?}",  i.to_raw_vec());
-			// }
 
 		}
 	}
@@ -497,8 +465,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns a type of transaction that should be produced in current run.
 	fn choose_transaction_type(block_number: T::BlockNumber) -> TransactionType {
-		/// A friendlier name for the error that is going to be returned in case we are in the grace
-		/// period.
+
 		log::debug!("RUN LIN 0 :: choose_transaction_type ");
 		const RECENTLY_SENT: ()= ();
 
