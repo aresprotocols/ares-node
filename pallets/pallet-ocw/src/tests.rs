@@ -213,6 +213,7 @@ fn addprice_of_ares () {
         let btc_price_list = Example::ares_prices("btc_price".as_bytes().to_vec().clone());
         assert_eq!(vec![8888, 9999], btc_price_list);
 
+
         let price_key = PriceKey::PRICE_KEY_IS_ETH;
         // when
         Example::add_price(Default::default(), 7777, price_key.clone());
@@ -228,15 +229,17 @@ fn addprice_of_ares () {
 
 #[test]
 fn parse_price_ares_works() {
-    let price_str = get_are_json_of_btc();
     let test_data = vec![
-        (price_str, Some(5026137)),
+        (get_are_json_of_btc(), Some(5026137)),
+        (get_are_json_of_eth(), Some(310771)),
     ];
 
     for (json, expected) in test_data {
         let second = Example::parse_price_of_ares(json);
         assert_eq!(expected, second);
     }
+
+
 }
 
 #[test]
@@ -302,4 +305,8 @@ fn should_submit_raw_unsigned_ares_owc_transaction_on_chain() {
 
 fn get_are_json_of_btc() -> &'static str {
     "{\"code\":0,\"message\":\"OK\",\"data\":{\"price\":50261.372,\"timestamp\":1629699168,\"infos\":[{\"price\":50244.79,\"weight\":1,\"exchangeName\":\"binance\"},{\"price\":50243.16,\"weight\":1,\"exchangeName\":\"cryptocompare\"},{\"price\":50274,\"weight\":1,\"exchangeName\":\"bitfinex\"},{\"price\":50301.59,\"weight\":1,\"exchangeName\":\"bitstamp\"},{\"price\":50243.32,\"weight\":1,\"exchangeName\":\"huobi\"}]}}"
+}
+
+fn get_are_json_of_eth() -> &'static str {
+    "{\"code\":0,\"message\":\"OK\",\"data\":{\"price\":3107.71,\"timestamp\":1630055777,\"infos\":[{\"price\":3107,\"weight\":1,\"exchangeName\":\"huobi\"},{\"price\":3106.56,\"weight\":1,\"exchangeName\":\"cryptocompare\"},{\"price\":3106.68,\"weight\":1,\"exchangeName\":\"ok\"},{\"price\":3107,\"weight\":1,\"exchangeName\":\"bitfinex\"},{\"price\":3111.31,\"weight\":1,\"exchangeName\":\"bitstamp\"}]}}"
 }

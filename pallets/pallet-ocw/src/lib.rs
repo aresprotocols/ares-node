@@ -319,9 +319,9 @@ pub mod pallet {
     /// A vector of recently submitted prices.
     ///
     /// This is used to calculate average price, should have bounded size.
-    #[pallet::storage]
-    #[pallet::getter(fn prices)]
-    pub(super) type Prices<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn prices)]
+    // pub(super) type Prices<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn prices_trace)]
@@ -368,6 +368,7 @@ impl<T: Config> Pallet<T>
 {
     /// Obtain ares price and submit it.
     fn ares_price_worker(block_number: T::BlockNumber) -> Result<(), &'static str> {
+
         let next_unsigned_at = <NextUnsignedAt<T>>::get();
         log::info!("next_unsigned_at > block_number = {:?} > {:?}", next_unsigned_at, block_number);
         if next_unsigned_at > block_number {
