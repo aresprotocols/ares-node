@@ -15,6 +15,7 @@ impl pallet_ocw::Config for Runtime {
     type Call = Call;
     type AuthorityId = pallet_ocw::crypto::OcwAuthId ;
     type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
+    type FindAuthor = Babe;
     type GracePeriod = GracePeriod;
     type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
