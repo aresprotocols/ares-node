@@ -19,6 +19,7 @@ impl pallet_ocw::Config for Runtime {
     type GracePeriod = GracePeriod;
     type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
+    type ValidatorSet = Historical;
 }
 
 //

@@ -15,6 +15,10 @@ use codec::{Encode, Decode};
 use sp_std::vec::Vec;
 use lite_json::json::JsonValue;
 
+use frame_support::traits::{
+    EstimateNextSessionRotation, OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification,
+};
+
 #[cfg(test)]
 mod tests;
 
@@ -27,6 +31,7 @@ pub enum PriceKey {
     PRICE_KEY_IS_BTC,
     PRICE_KEY_IS_ETH,
 }
+
 // pub const PRICE_KEY_IS_NONE: Vec<u8> = "__none_price".as_bytes().to_vec();
 // pub const PRICE_KEY_IS_BTC: Vec<u8> = "btc_price".as_bytes().to_vec();
 
@@ -63,7 +68,6 @@ pub mod crypto {
     }
 }
 
-
 pub mod sr25519 {
     use super::KEY_TYPE;
 
@@ -94,6 +98,8 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use super::*;
     use frame_system::Account;
+    use frame_support::sp_runtime::traits::{IdentifyAccount};
+    use sp_runtime::traits::Convert;
 
     /// This pallet's configuration trait
     #[pallet::config]
@@ -115,6 +121,9 @@ pub mod pallet {
         // TODO:: add author , use babe or aura
         type FindAuthor: FindAuthor<u32>;
 
+        /// A type for retrieving the validators supposed to be online in a session.
+        type ValidatorSet: ValidatorSetWithIdentification<Self::AccountId>;
+
         /// A grace period after we send transaction.
         ///
         /// To avoid sending too many transactions, we only attempt to send one
@@ -135,7 +144,6 @@ pub mod pallet {
         /// multiple pallets send unsigned transactions.
         #[pallet::constant]
         type UnsignedPriority: Get<TransactionPriority>;
-
 
     }
 
@@ -159,8 +167,8 @@ pub mod pallet {
             }
 
             // TODO:: Try simplifying the block_ The acquisition link theory of author can skip pallet_ Authorship, here is a test to see what is returned by babe's findauthor. The work is not completed yet, and other more important work needs to be carried out first.
-            let digest = <frame_system::Pallet<T>>::digest();
-            let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+            // let digest = <frame_system::Pallet<T>>::digest();
+            // let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
             // TODO:: Try to simplify the method ：： log::info!(" $$$$$$$$$$ FindAuthor {:?}", <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests));
         }
     }
@@ -176,38 +184,35 @@ pub mod pallet {
         pub fn submit_price_trace_unsigned(
             origin: OriginFor<T>,
             price_value: u32
-
         ) -> DispatchResultWithPostInfo
         {
             ensure_none(origin)?;
-
             <PricesTrace<T>>::mutate(|prices_trace| {
                 prices_trace.push((price_value, T::AccountId::default(), T::AccountId::default()));
             });
-
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
-        pub fn submit_price_unsigned(
-            origin: OriginFor<T>,
-            _block_number: T::BlockNumber,
-            price_list: Vec<(PriceKey, u32)>,
-        ) -> DispatchResultWithPostInfo
-        {
-            ensure_none(origin)?;
-            // Nodes with the right to increase prices
-            for (price_key, price) in price_list {
-                // Add the price to the on-chain list, but mark it as coming from an empty address.
-                Self::add_price(Default::default(), price, price_key);
-            }
-            // now increment the block number at which we expect next unsigned transaction.
-            let current_block = <system::Pallet<T>>::block_number();
-            // update NextUnsignedAt
-            <NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
-
-            Ok(().into())
-        }
+        // #[pallet::weight(0)]
+        // pub fn submit_price_unsigned(
+        //     origin: OriginFor<T>,
+        //     _block_number: T::BlockNumber,
+        //     price_list: Vec<(PriceKey, u32)>,
+        // ) -> DispatchResultWithPostInfo
+        // {
+        //     ensure_none(origin)?;
+        //     // Nodes with the right to increase prices
+        //     for (price_key, price) in price_list {
+        //         // Add the price to the on-chain list, but mark it as coming from an empty address.
+        //         Self::add_price(Default::default(), price, price_key);
+        //     }
+        //     // now increment the block number at which we expect next unsigned transaction.
+        //     let current_block = <system::Pallet<T>>::block_number();
+        //     // update NextUnsignedAt
+        //     <NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
+        //
+        //     Ok(().into())
+        // }
 
         #[pallet::weight(0)]
         pub fn submit_price_unsigned_with_signed_payload(
@@ -219,6 +224,7 @@ pub mod pallet {
             ensure_none(origin)?;
             // Nodes with the right to increase prices
             let price_list = price_payload.price; // price_list: Vec<(PriceKey, u32)>,
+            log::info!(" ============AA {:?}", price_payload.public.clone());
             for (price_key, price) in price_list {
                 // Add the price to the on-chain list, but mark it as coming from an empty address.
                 Self::add_price(Default::default(), price, price_key);
@@ -255,27 +261,45 @@ pub mod pallet {
         fn validate_unsigned(
             _source: TransactionSource,
             call: &Self::Call,
-        ) -> TransactionValidity {
+        ) -> TransactionValidity
+            // where <<T as pallet::Config>::ValidatorSet as frame_support::traits::ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId: From<<T as SigningTypes>::Public>
+            // where <T as frame_system::Config>::AccountId: From<<<T as pallet::Config>::ValidatorSet as frame_support::traits::ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId>
+            // where <T as frame_system::Config>::AccountId: From<<T as SigningTypes>::Public>
+        {
             if let Call::submit_price_unsigned_with_signed_payload(
                 ref payload, ref signature
             ) = call {
                 log::info!("=============== Run ok function !!!! ..");
+                let current_validators = T::ValidatorSet::validators();
+
+                let mut find_validator = false;
+                for validator in current_validators {
+                    log::info!("=============== Loop {:?} Signer {:?}", validator.clone(), acctoun_validator.clone() );
+                    let account : T::AccountId = <T as SigningTypes>::Public::into_account( payload.public.clone());
+                    log::info!("------- {:?}", account);
+                    // Type is : <<T as pallet::Config>::ValidatorSet as ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId
+                    let acctoun_validator = <T::ValidatorSet as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(account).expect("Convert bad fo account to validator.") ;//  = <<T as pallet::Config>::ValidatorSet as ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorIdOf::convert(account).expect("Convert bad fo account to validator.") ;
+                    log::info!("=============== Loop {:?} Signer {:?}", validator.clone(), acctoun_validator.clone() );
+                    if validator == acctoun_validator {
+                        find_validator = true;
+                    }
+                }
+
+                if !find_validator {
+                    log::info!("=============== Validator check failed !!!! ..");
+                    return InvalidTransaction::BadProof.into();
+                }
+
                 let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
                 if !signature_valid {
                     log::info!("=============== BadProof.into() !!!! ..");
                     return InvalidTransaction::BadProof.into();
                 }
                 Self::validate_transaction_parameters_of_ares(&payload.block_number, payload.price.to_vec())
-            } else if let Call::submit_price_unsigned(block_number, ref price_list) = call {
-                log::info!("=============== Run unsave function !!!! ..");
-                Self::validate_transaction_parameters_of_ares(block_number, price_list.to_vec())
+            // } else if let Call::submit_price_unsigned(block_number, ref price_list) = call {
+            //     log::info!("=============== Run unsave function !!!! ..");
+            //     Self::validate_transaction_parameters_of_ares(block_number, price_list.to_vec())
             } else if let Call::submit_price_trace_unsigned(ref price_value) = call {
-
-                // let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
-                // if !signature_valid {
-                //     log::info!("=============== BadProof.into() !!!! ..");
-                //     return InvalidTransaction::BadProof.into();
-                // }
 
                 ValidTransaction::with_tag_prefix("pallet-ocw::validate_transaction_parameters_of_ares")
                     .priority(T::UnsignedPriority::get())
@@ -382,29 +406,29 @@ impl<T: Config> Pallet<T>
 
     // Submit price information without signature
     // TODO:: Unsafe will be del.
-    fn fetch_ares_price_and_send_raw_unsigned(block_number: T::BlockNumber) -> Result<(), &'static str> {
-        let mut price_key_list = Vec::new();
-        price_key_list.push(PriceKey::PRICE_KEY_IS_BTC);
-        price_key_list.push(PriceKey::PRICE_KEY_IS_ETH);
-
-        let mut price_list = Vec::new();
-        for price_key in price_key_list {
-            if let Ok(price) = Self::fetch_price_of_ares(price_key.clone()) {
-                // add price to price_list
-                price_list.push((price_key, price));
-            }
-        }
-
-        if price_list.len() > 0 {
-            // Received price is wrapped into a call to `submit_price_unsigned` public function of this pallet.
-            let call = Call::submit_price_unsigned(block_number, price_list);
-
-            // Now let's create a transaction out of this call and submit it to the pool.
-            SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-                .map_err(|()| "ERROR:: Unable to submit unsigned transaction.")?;
-        }
-        Ok(())
-    }
+    // fn fetch_ares_price_and_send_raw_unsigned(block_number: T::BlockNumber) -> Result<(), &'static str> {
+    //     let mut price_key_list = Vec::new();
+    //     price_key_list.push(PriceKey::PRICE_KEY_IS_BTC);
+    //     price_key_list.push(PriceKey::PRICE_KEY_IS_ETH);
+    //
+    //     let mut price_list = Vec::new();
+    //     for price_key in price_key_list {
+    //         if let Ok(price) = Self::fetch_price_of_ares(price_key.clone()) {
+    //             // add price to price_list
+    //             price_list.push((price_key, price));
+    //         }
+    //     }
+    //
+    //     if price_list.len() > 0 {
+    //         // Received price is wrapped into a call to `submit_price_unsigned` public function of this pallet.
+    //         let call = Call::submit_price_unsigned(block_number, price_list);
+    //
+    //         // Now let's create a transaction out of this call and submit it to the pool.
+    //         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+    //             .map_err(|()| "ERROR:: Unable to submit unsigned transaction.")?;
+    //     }
+    //     Ok(())
+    // }
 
 
     fn save_fetch_ares_price_and_send_raw_unsigned(block_number: T::BlockNumber) -> Result<(), &'static str> {
@@ -569,13 +593,13 @@ impl<T: Config> Pallet<T>
             <AresPrice<T>>::insert(price_key_str.clone(), new_price);
         }
 
-        // <AresPrice<T>>::get
-
         // Get current block number for test.
         let current_block = <system::Pallet<T>>::block_number();
         log::info!("======= DEBUG:: current blocknum : {:?}, {:?}", current_block, key_str);
 
         // let mut session_account = Self::get_session_account();
+
+
         <PricesTrace<T>>::mutate(|prices_trace| {
             let author = <pallet_authorship::Pallet<T>>::author();
             log::info!("LIN:DEBUG price_trace {:?}, {:?}, {:?},{:?},{:?}", key_str, current_block, price.clone(), author.clone(), who.clone());
