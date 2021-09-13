@@ -5163,6 +5163,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-staking",
  "sp-std",
 ]
 
