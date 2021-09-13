@@ -189,10 +189,17 @@ pub mod pallet {
             // Nodes with the right to increase prices
             let price_list = price_payload.price; // price_list: Vec<(PriceKey, u32)>,
 
-            for (price_key, price) in price_list {
+            let mut event_result: Vec<(Vec<u8>, u32)> = Vec::new();
+            for (price_key, price) in price_list.clone() {
                 // Add the price to the on-chain list, but mark it as coming from an empty address.
-                Self::add_price(Default::default(), price, price_key, T::PriceVecMaxSize::get());
+                Self::add_price(price_payload.public.clone().into_account(), price.clone(), price_key.clone(), T::PriceVecMaxSize::get());
+                event_result.push((Self::get_price_key_str(price_key).as_bytes().to_vec(),price));
             }
+
+            // Self::deposit_event(Event::KittyCreate(who, kitty_id));
+            Self::deposit_event(Event::NewPrice(event_result , price_payload.public.clone().into_account()));
+            // Self::deposit_event(Event::NewPrice(price_list , price_payload.public.clone().into_account()));
+
             // now increment the block number at which we expect next unsigned transaction.
             let current_block = <system::Pallet<T>>::block_number();
             <NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
@@ -209,7 +216,8 @@ pub mod pallet {
     {
         /// Event generated when new price is accepted to contribute to the average.
         /// \[price, who\]
-        NewPrice(u32, Vec<u8>, T::AccountId),
+        // NewPrice(u32, Vec<u8>, T::AccountId),
+        NewPrice(Vec<(Vec<u8>, u32)>, T::AccountId),
     }
 
     #[pallet::validate_unsigned]
@@ -594,7 +602,7 @@ impl<T: Config> Pallet<T>
         <AresAvgPrice<T>>::insert(price_key_str.clone(), average);
 
         // here we are raising the NewPrice event
-        Self::deposit_event(Event::NewPrice(price, key_str.as_bytes().to_vec() , who));
+        // Self::deposit_event(Event::NewPrice(price, key_str.as_bytes().to_vec() , who));
     }
 
     /// Calculate current average price.
