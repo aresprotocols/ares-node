@@ -18,7 +18,7 @@
 use crate::*;
 use crate as ares_ocw_worker;
 use codec::Decode;
-use frame_support::{parameter_types, ConsensusEngineId};
+use frame_support::{assert_ok, parameter_types, ord_parameter_types, ConsensusEngineId, traits::GenesisBuild};
 use std::sync::Arc;
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{
@@ -49,6 +49,8 @@ use frame_support::traits::{FindAuthor, VerifySeal};
 use pallet_authorship::SealVerify;
 use sp_staking::SessionIndex;
 use sp_runtime::traits::AppVerify;
+
+use frame_system::{EnsureSignedBy, EnsureRoot};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -196,13 +198,22 @@ parameter_types! {
     pub const NeedVerifierCheck: bool = false;
 }
 
+ord_parameter_types! {
+	pub const One: u64 = 1;
+	pub const Two: u64 = 2;
+	pub const Three: u64 = 3;
+	pub const Four: u64 = 4;
+	pub const Five: u64 = 5;
+	pub const Six: u64 = 6;
+}
+
 impl Config for Test {
     type Event = Event;
     type AuthorityId = crypto::OcwAuthId;
     type AuthorityAres = sr25519::AuthorityId;
     type Call = Call;
     type ValidatorSet = Historical;
-    // type GracePeriod = GracePeriod;
+    type RequestOrigin = frame_system::EnsureRoot<AccountId>;
     type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
     type PriceVecMaxSize = PriceVecMaxSize;
@@ -245,6 +256,7 @@ impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSe
     fn end_session(_: SessionIndex) {}
     fn start_session(_: SessionIndex) {}
 }
+
 
 pub struct TestHistoricalConvertInto<T:pallet_session::historical::Config>(sp_std::marker::PhantomData<T>);
 // type FullIdentificationOf: Convert<Self::ValidatorId, Option<Self::FullIdentification>>;
@@ -311,7 +323,7 @@ fn addprice_of_ares () {
     t.execute_with(|| {
 
         // when
-        let price_key = PriceKey::PriceKeyIsBTC ;
+        let price_key = "btc_price".as_bytes().to_vec();// PriceKey::PriceKeyIsBTC ;
         AresOcw::add_price(Default::default(), 8888, price_key.clone(), 2);
         AresOcw::add_price(Default::default(), 9999, price_key.clone(), 2);
 
@@ -337,7 +349,7 @@ fn addprice_of_ares () {
         assert_eq!(bet_avg_price, (8888 + 3333) / 2);
 
         // when
-        let price_key = PriceKey::PriceKeyIsETH ;
+        let price_key = "eth_price".as_bytes().to_vec() ;// PriceKey::PriceKeyIsETH ;
         AresOcw::add_price(Default::default(), 7777, price_key.clone(), 2);
         let btc_price_list = AresOcw::ares_prices("eth_price".as_bytes().to_vec().clone());
         assert_eq!(vec![7777], btc_price_list);
@@ -393,7 +405,7 @@ fn should_make_http_call_and_parse_ares_result() {
     });
 
     t.execute_with(|| {
-        let price = AresOcw::fetch_price_body_with_http(PriceKey::PriceKeyIsBTC, "http://141.164.58.241:5566/api/getPartyPrice/btcusdt", 1u32).unwrap();
+        let price = AresOcw::fetch_price_body_with_http(Vec::new(), "http://141.164.58.241:5566/api/getPartyPrice/btcusdt", 1u32).unwrap();
         assert_eq!(price, 5026137);
     });
 }
@@ -401,6 +413,8 @@ fn should_make_http_call_and_parse_ares_result() {
 
 #[test]
 fn save_fetch_ares_price_and_send_payload_signed() {
+    let mut t = new_test_ext();
+
     const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
     let (offchain, offchain_state) = testing::TestOffchainExt::new();
     let (pool, pool_state) = testing::TestTransactionPoolExt::new();
@@ -418,11 +432,9 @@ fn save_fetch_ares_price_and_send_payload_signed() {
         .unwrap()
         .clone();
 
-    let mut t = sp_io::TestExternalities::default();
     t.register_extension(OffchainWorkerExt::new(offchain));
     t.register_extension(TransactionPoolExt::new(pool));
     t.register_extension(KeystoreExt(Arc::new(keystore)));
-
 
     offchain_state.write().expect_request(testing::PendingRequest {
         method: "GET".into(),
@@ -438,7 +450,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
             // (PriceKey::PriceKeyIsBTC, 5026137u32),
             // (PriceKey::PriceKeyIsETH, 310771),
             // (PriceKey::PriceKeyIsDOT, 3599),
-            (PriceKey::PriceKeyIsXRP, 109),
+            ("xrp_price".as_bytes().to_vec(), 109),
         ],
         public: <Test as SigningTypes>::Public::from(public_key),
     };
@@ -492,9 +504,9 @@ fn save_fetch_ares_price_and_send_payload_signed() {
     let price_payload_b2 = PricePayload {
         block_number: 2, // type is BlockNumber
         price: vec![
-            (PriceKey::PriceKeyIsBTC, 5026137u32),
-            (PriceKey::PriceKeyIsETH, 310771),
-            (PriceKey::PriceKeyIsDOT, 3599),
+            ("btc_price".as_bytes().to_vec(), 5026137u32),
+            ("eth_price".as_bytes().to_vec(), 310771),
+            ("dot_price".as_bytes().to_vec(), 3599),
             // (PriceKey::PriceKeyIsXRP, 109),
         ],
         public: <Test as SigningTypes>::Public::from(public_key),
@@ -518,6 +530,45 @@ fn save_fetch_ares_price_and_send_payload_signed() {
             // AresOcw::submit_price_unsigned_with_signed_payload(Origin::none(),body,signature);
         }
     });
+}
+
+#[test]
+fn test_request_propose_submit() {
+    let mut t = new_test_ext();
+
+    t.execute_with(|| {
+
+        assert_eq!(AresOcw::prices_requests().len(), 4);
+        assert_ok!(AresOcw::request_propose(Origin::root(), toVec("xxx_price"), toVec("http://xxx.com"), 2 ));
+        assert_eq!(AresOcw::prices_requests().len(), 5);
+
+        let tmp_result = AresOcw::prices_requests();
+        assert_eq!(tmp_result[4], (toVec("xxx_price"), toVec("http://xxx.com"), 2, 1));
+
+        assert_ok!(AresOcw::request_propose(Origin::root(), toVec("xxx_price"), toVec("http://aaa.com"), 3 ));
+        assert_eq!(AresOcw::prices_requests().len(), 5);
+        let tmp_result = AresOcw::prices_requests();
+        assert_eq!(tmp_result[4], (toVec("xxx_price"), toVec("http://aaa.com"), 3, 2));
+
+    });
+}
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    crate::GenesisConfig::<Test>{
+        _phantom: Default::default(),
+        price_requests: vec![
+            (toVec("btc_price"), toVec("http://141.164.58.241:5566/api/getPartyPrice/btcusdt"), 1u32, 0u32),
+            (toVec("eth_price"), toVec("http://141.164.58.241:5566/api/getPartyPrice/ethusdt"), 1u32, 0u32),
+            (toVec("dot_price"), toVec("http://141.164.58.241:5566/api/getPartyPrice/dotusdt"), 1u32, 0u32),
+            (toVec("xrp_price"), toVec("http://141.164.58.241:5566/api/getPartyPrice/xrpusdt"), 1u32, 0u32),
+        ]
+    }.assimilate_storage(&mut t).unwrap();
+    t.into()
+}
+
+fn toVec(input: &str) -> Vec<u8> {
+    input.as_bytes().to_vec()
 }
 
 fn get_are_json_of_btc() -> &'static str {

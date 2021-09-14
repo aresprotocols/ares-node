@@ -9,7 +9,7 @@ parameter_types! {
     pub const MaxCountOfPerRequest: u8 = 2;
 	pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
-    pub const NeedVerifierCheck: bool = true;
+    pub const NeedVerifierCheck: bool = false;
 }
 
 impl pallet_ocw::Config for Runtime {
@@ -23,6 +23,7 @@ impl pallet_ocw::Config for Runtime {
     type PriceVecMaxSize = PriceVecMaxSize;
     type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
+    type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective> ; // frame_system::EnsureRoot<AccountId>;
 }
 
 //
