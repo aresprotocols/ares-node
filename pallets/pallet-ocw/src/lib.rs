@@ -114,14 +114,10 @@ pub mod pallet {
         /// ocw store key pair.
         type AuthorityAres: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
 
-        // TODO:: add author , use babe or aura
-        type FindAuthor: FindAuthor<u32>;
-
         /// A type for retrieving the validators supposed to be online in a session.
         type ValidatorSet: ValidatorSet<Self::AccountId>;
 
-        /// Number of blocks of cooldown after unsigned transaction is included.
-        ///
+
         /// This ensures that we only accept unsigned transactions once, every `UnsignedInterval` blocks.
         #[pallet::constant]
         type UnsignedInterval: Get<Self::BlockNumber>;

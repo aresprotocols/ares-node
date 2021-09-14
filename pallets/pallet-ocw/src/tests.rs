@@ -201,7 +201,6 @@ impl Config for Test {
     type AuthorityId = crypto::OcwAuthId;
     type AuthorityAres = sr25519::AuthorityId;
     type Call = Call;
-    type FindAuthor = ();
     type ValidatorSet = Historical;
     // type GracePeriod = GracePeriod;
     type UnsignedInterval = UnsignedInterval;
