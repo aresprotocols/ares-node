@@ -22,6 +22,7 @@ use crate::keyring::*;
 use node_runtime::{
 	constants::currency::*, wasm_binary_unwrap, AccountId, BabeConfig, BalancesConfig,
 	GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, SocietyConfig, StakerStatus,
+	OCWModuleConfig,
 	StakingConfig, SystemConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use sp_core::ChangesTrieConfiguration;
@@ -97,8 +98,16 @@ pub fn config_endowed(
 		sudo: Default::default(),
 		treasury: Default::default(),
 		society: SocietyConfig { members: vec![alice(), bob()], pot: 0, max_members: 999 },
+		ocw_module: OCWModuleConfig {
+			_phantom: Default::default(),
+			price_requests: vec![
+				("btc_price".as_bytes().to_vec(), "http://141.164.58.241:5566/api/getPartyPrice/btcusdt".as_bytes().to_vec(), 1u32, 1u32),
+				("eth_price".as_bytes().to_vec(), "http://141.164.58.241:5566/api/getPartyPrice/ethusdt".as_bytes().to_vec(), 1u32, 1u32),
+			]
+		},
 		vesting: Default::default(),
 		gilt: Default::default(),
 		transaction_storage: Default::default(),
+
 	}
 }

@@ -5,9 +5,11 @@ use pallet_ocw;
 pub type BlockNumber = u32;
 
 parameter_types! {
-	pub const GracePeriod: BlockNumber = 5;
+	pub const PriceVecMaxSize: u32 = 50;
+    pub const MaxCountOfPerRequest: u8 = 2;
 	pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
+    pub const NeedVerifierCheck: bool = false;
 }
 
 impl pallet_ocw::Config for Runtime {
@@ -15,10 +17,13 @@ impl pallet_ocw::Config for Runtime {
     type Call = Call;
     type AuthorityId = pallet_ocw::crypto::OcwAuthId ;
     type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
-    type FindAuthor = Babe;
-    type GracePeriod = GracePeriod;
     type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
+    type ValidatorSet = Historical;
+    type PriceVecMaxSize = PriceVecMaxSize;
+    type MaxCountOfPerRequest = MaxCountOfPerRequest;
+    type NeedVerifierCheck = NeedVerifierCheck;
+    type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective> ; // frame_system::EnsureRoot<AccountId>;
 }
 
 //

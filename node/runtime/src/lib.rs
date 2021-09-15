@@ -1179,7 +1179,7 @@ construct_runtime!(
 		// TODO:: --- ares
 		TemplateModule: template::{Pallet, Call, Storage, Event<T>},
 		AresModule: pallet_ares::{Pallet, Call, Storage, Event<T>},
-		OCWModule: pallet_ocw::{Pallet, Call, Storage, Event<T>, ValidateUnsigned}
+		OCWModule: pallet_ocw::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>}
 
 	}
 );
