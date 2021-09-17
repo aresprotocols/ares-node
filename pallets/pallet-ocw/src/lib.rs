@@ -9,18 +9,24 @@ use frame_system::{
 };
 
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{RuntimeDebug, offchain::{http, Duration}, transaction_validity::{InvalidTransaction, ValidTransaction, TransactionValidity}, RuntimeAppPublic, AccountId32};
+use core::{fmt};
+use sp_runtime::{ RuntimeDebug, offchain::{http, Duration}, transaction_validity::{InvalidTransaction, ValidTransaction, TransactionValidity}, RuntimeAppPublic, AccountId32};
 use codec::{Encode, Decode};
 use sp_std::vec::Vec;
 use lite_json::json::JsonValue;
 
 use frame_support::traits::{ Get, ValidatorSet, FindAuthor};
+use serde::{Deserialize, Deserializer};
+use sp_std::{prelude::*, str, };
+use frame_support::sp_std::str::FromStr;
 
 #[cfg(test)]
 mod tests;
 
 /// The keys can be inserted manually via RPC (see `author_insertKey`).
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ares");
+pub const LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL: &[u8] = b"are-ocw::make_price_request_pool";
+pub const LOCAL_STORAGE_PRICE_REQUEST_LIST: &[u8] = b"are-ocw::price_request_list";
 
 // #[derive(Eq, PartialEq, Clone, Encode, Decode, RuntimeDebug)]
 // pub enum PriceKey {
@@ -82,6 +88,8 @@ pub mod sr25519 {
 
 pub use pallet::*;
 use frame_system::offchain::{Signer, SendUnsignedTransaction};
+use sp_runtime::offchain::storage::StorageValueRef;
+use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -90,11 +98,11 @@ pub mod pallet {
     use super::*;
     use frame_support::sp_runtime::traits::{IdentifyAccount};
 
-    // #[pallet::error]
-    // pub enum Error<T> {
-    //     ///
-    //     UnknownAresPriceVersionNum,
-    // }
+    #[pallet::error]
+    pub enum Error<T> {
+        ///
+        UnknownAresPriceVersionNum,
+    }
 
     /// This pallet's configuration trait
     #[pallet::config]
@@ -139,8 +147,14 @@ pub mod pallet {
         #[pallet::constant]
         type NeedVerifierCheck: Get<bool>;
 
+        #[pallet::constant]
+        type UseOnChainPriceRequest: Get<bool>;
+
         // Used to confirm RequestPropose.
         type RequestOrigin: EnsureOrigin<Self::Origin>;
+
+        #[pallet::constant]
+        type FractionLengthNum: Get<u32>;
 
     }
 
@@ -162,6 +176,14 @@ pub mod pallet {
                     Err(e) => log::warn!("ERROR:: Ares price has a problem : {:?}", e),
                 }
             }
+
+            Self::fetch_local_price_request_info();
+
+            // TODO:: for debug info
+            if let (_, price_request_vec) = Self::get_local_storage_price_request_list() {
+                log::info!("Local price request list: {:?}", price_request_vec);
+            }
+
 
             // TODO:: Try simplifying the block_ The acquisition link theory of author can skip pallet_ Authorship, here is a test to see what is returned by babe's findauthor. The work is not completed yet, and other more important work needs to be carried out first.
             // let digest = <frame_system::Pallet<T>>::digest();
@@ -188,7 +210,7 @@ pub mod pallet {
             // Nodes with the right to increase prices
             let price_list = price_payload.price; // price_list: Vec<(PriceKey, u32)>,
 
-            let mut event_result: Vec<(Vec<u8>, u32)> = Vec::new();
+            let mut event_result: Vec<(Vec<u8>, u64)> = Vec::new();
             for (price_key, price) in price_list.clone() {
                 // Add the price to the on-chain list, but mark it as coming from an empty address.
                 Self::add_price(price_payload.public.clone().into_account(), price.clone(), price_key.clone(), T::PriceVecMaxSize::get());
@@ -235,45 +257,6 @@ pub mod pallet {
             });
 
             Ok(())
-
-            //     <PricesTrace<T>>::mutate(|prices_trace| {
-            //     let author = <pallet_authorship::Pallet<T>>::author();
-            //     log::info!("LIN:DEBUG price_trace {:?}, {:?}, {:?},{:?},{:?}", key_str, current_block, price.clone(), author.clone(), who.clone());
-            //     let MAX_LEN: usize = max_len.clone() as usize;
-            //     let price_trace_len = prices_trace.len();
-            //     if price_trace_len < MAX_LEN {
-            //         prices_trace.push((price.clone(), author.clone(), who.clone()));
-            //     } else {
-            //         prices_trace[price_trace_len % MAX_LEN] = (price.clone(), author.clone(), who.clone());
-            //     }
-            // });
-
-            // if <AresPrice<T>>::contains_key(key_str.clone()) {
-            //     // get and reset .
-            //     let mut old_price = <AresPrice<T>>::get(key_str.clone());
-            //     let MAX_LEN: usize = max_len.clone() as usize;
-            //     if old_price.len() < MAX_LEN {
-            //         old_price.push(price.clone());
-            //     } else {
-            //         old_price[price as usize % MAX_LEN] = price.clone();
-            //     }
-            //     <AresPrice<T>>::insert(key_str.clone(), old_price);
-            // } else {
-            //     // push a new value.
-            //     let mut new_price: Vec<u32> = Vec::new();
-            //     new_price.push(price.clone());
-            //     <AresPrice<T>>::insert(key_str.clone(), new_price);
-            // }
-            //
-            // ensure!(!<NextExternal<T>>::exists(), Error::<T>::DuplicateProposal);
-            // if let Some((until, _)) = <Blacklist<T>>::get(proposal_hash) {
-            //     ensure!(
-			// 		<frame_system::Pallet<T>>::block_number() >= until,
-			// 		Error::<T>::ProposalBlacklisted,
-			// 	);
-            // }
-            // <NextExternal<T>>::put((proposal_hash, VoteThreshold::SuperMajorityApprove));
-
         }
     }
 
@@ -287,7 +270,7 @@ pub mod pallet {
         /// Event generated when new price is accepted to contribute to the average.
         /// \[price, who\]
         // NewPrice(u32, Vec<u8>, T::AccountId),
-        NewPrice(Vec<(Vec<u8>, u32)>, T::AccountId),
+        NewPrice(Vec<(Vec<u8>, u64)>, T::AccountId),
     }
 
     #[pallet::validate_unsigned]
@@ -347,7 +330,7 @@ pub mod pallet {
     /// A vector of recently submitted prices.
     #[pallet::storage]
     #[pallet::getter(fn prices_trace)]
-    pub(super) type PricesTrace<T: Config> = StorageValue<_, Vec<(u32, T::AccountId, T::AccountId)>, ValueQuery>;
+    pub(super) type PricesTrace<T: Config> = StorageValue<_, Vec<(u64, T::AccountId, T::AccountId)>, ValueQuery>;
 
     /// The lookup table for names.
     #[pallet::storage]
@@ -356,7 +339,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         Vec<u8>,
-        Vec<u32>,
+        Vec<u64>,
         ValueQuery
     >;
 
@@ -366,7 +349,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         Vec<u8>,
-        u32,
+        u64,
         ValueQuery
     >;
 
@@ -425,7 +408,7 @@ pub mod pallet {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct PricePayload<Public, BlockNumber> {
     block_number: BlockNumber,
-    price: Vec<(Vec<u8>, u32)>,
+    price: Vec<(Vec<u8>, u64)>,
     public: Public,
 }
 
@@ -458,6 +441,7 @@ impl<T: Config> Pallet<T>
             if owner_account_id32 == block_author.into() {
                 is_same = true;
             }
+
         }
         is_same
     }
@@ -474,53 +458,119 @@ impl<T: Config> Pallet<T>
 
     /// Obtain ares price and submit it.
     fn ares_price_worker(block_number: T::BlockNumber) -> Result<(), &'static str> {
-
         if !Self::is_submittable_block_now(block_number) {
             return Err("It's too early.");
         }
-
         // let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number); // PriceKey::PRICE_KEY_IS_ETH
         let res = Self::save_fetch_ares_price_and_send_payload_signed(block_number, T::MaxCountOfPerRequest::get()); // PriceKey::PRICE_KEY_IS_ETH
-
         if let Err(e) = res {
             log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 2: {:?}", e);
         }
-
         Ok(())
     }
 
     // get uri key raw of ARES price
-    fn get_price_source_list () ->Vec<(Vec<u8>, Vec<u8>, u32, u32)> {
-        // let mut price_key_list = Vec::new();
-        // price_key_list.push((PriceKey::PriceKeyIsBTC, "http://141.164.58.241:5566/api/getPartyPrice/btcusdt", 1u32));
-        // price_key_list.push((PriceKey::PriceKeyIsETH, "http://141.164.58.241:5566/api/getPartyPrice/ethusdt", 1u32));
-        // price_key_list.push((PriceKey::PriceKeyIsDOT, "http://141.164.58.241:5566/api/getPartyPrice/dotusdt", 1u32));
-        // price_key_list.push((PriceKey::PriceKeyIsXRP, "http://141.164.58.241:5566/api/getPartyPrice/xrpusdt", 1u32));
-        // price_key_list
+    fn get_price_source_list (read_chain_data: bool) ->Vec<(Vec<u8>, Vec<u8>, u32, u32)> {
+        // Use the on chain storage data mode.
+        if read_chain_data {
+            let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = <PricesRequests<T>>::get().into_iter().map(|(price_key,request_url,parse_version,update_count)|{
+                (
+                    price_key,
+                    // sp_std::str::from_utf8(&request_url).unwrap().clone(),
+                    request_url,
+                    parse_version,
+                    update_count
+                )
+            }).collect() ;
+            return result;
+        }
 
-        let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = <PricesRequests<T>>::get().into_iter().map(|(price_key,request_url,parse_version,update_count)|{
-            (
-                price_key,
-                // sp_std::str::from_utf8(&request_url).unwrap().clone(),
-                request_url,
-                parse_version,
-                update_count
-            )
-        }).collect() ;
-        result
+        // read local storage
+        if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
+            let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = price_request_vec.into_iter().map(|local_price|{
+                (
+                    local_price.price_key,
+                    // sp_std::str::from_utf8(&request_url).unwrap().clone(),
+                    local_price.request_url,
+                    local_price.parse_version,
+                    1u32,
+                )
+            }).collect() ;
+            return result;
+        }
 
+        Vec::new()
     }
-// get string iden of price key
-    // fn get_price_key_str (price_key: PriceKey) -> &'static str {
-    //     match price_key {
-    //         PriceKey::PriceKeyIsBTC => {"btc_price"}
-    //         PriceKey::PriceKeyIsETH => {"eth_price"}
-    //         PriceKey::PriceKeyIsDOT => {"dot_price"}
-    //         PriceKey::PriceKeyIsXRP => {"xrp_price"}
-    //         PriceKey::PriceKeyIsNone => {"__none_price"}
-    //     }
-    // }
+
     //
+    fn fetch_local_price_request_info() -> Result<(), Error<T>> {
+        let mut make_price_request_pool = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL);
+        if let Some(local_request_info) = make_price_request_pool
+            .get::<Vec<u8>>()
+            .unwrap_or(Some(Vec::new())) {
+            log::info!("Ares local price request: Data detected, try to parse.");
+            if let Some(price_json_str) = sp_std::str::from_utf8(&local_request_info).map_err(|_| {
+                log::warn!("Error:: Extracting storage format, No UTF8.");
+            }).ok() {
+                log::info!("Ares local price request: json data {:?}.", &price_json_str);
+                // to update local price storage.
+                Self::update_local_price_storage(price_json_str);
+            }
+            // Clear data.
+            make_price_request_pool.clear()
+        }else{
+            // make_price_request_pool.set(&"{\"name\":\"linhai\"}".as_bytes().to_vec()) ;
+            log::info!(" Ares local price request: Waiting to insert data.");
+        }
+        Ok(())
+    }
+
+    fn get_local_storage_price_request_list() -> (StorageValueRef<'static>, Vec<LocalPriceRequestStorage>) {
+        let price_request_local_storage = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_LIST);
+        if let Some(mut price_request_vec) = price_request_local_storage.get::<Vec<LocalPriceRequestStorage>>().unwrap_or(Some(Vec::new())) {
+            return (price_request_local_storage, price_request_vec);
+        }
+        (price_request_local_storage, Vec::new())
+    }
+
+    //
+    fn update_local_price_storage(price_json_str: &str) -> Result<Vec<LocalPriceRequestStorage>, ()> {
+
+        if let Some(new_price_request) = Self::extract_local_price_storage(price_json_str) {
+
+            if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
+                if price_request_vec.len() > 0 {
+                    log::info!("Are local price request: OLD VALUE {:?}", &price_request_vec);
+                    for (index, local_price_request) in price_request_vec.clone().into_iter().enumerate() {
+                        if &new_price_request.price_key == &local_price_request.price_key {
+                            // kick out old value.
+                            price_request_vec.remove(index);
+                        }
+                    }
+                    // If not remove.
+                    if new_price_request.request_url != "".as_bytes().to_vec() {
+                        // Insert new request to storage
+                        price_request_vec.push(new_price_request);
+                    }
+                    // Save new request list.
+                    price_request_local_storage.set(&price_request_vec);
+                    return Ok(price_request_vec);
+                }else{
+                    // create local store
+                    let mut new_storage: Vec<LocalPriceRequestStorage> = Vec::new();
+                    new_storage.push(new_price_request);
+                    price_request_local_storage.set(&new_storage);
+                    return Ok(new_storage);
+                }
+            }
+        }
+        Err(())
+    }
+
+    // extract LocalPriceRequestStorage struct from json str
+    fn extract_local_price_storage(price_json_str: &str) -> Option<LocalPriceRequestStorage> {
+        serde_json::from_str(price_json_str).ok()
+    }
 
     // Get the number of cycles required to loop the array lenght.
     // If round_num = 0 returns the maximum value of u8
@@ -556,7 +606,7 @@ impl<T: Config> Pallet<T>
 
     fn save_fetch_ares_price_and_send_payload_signed(block_number: T::BlockNumber, max_request_count: u8) -> Result<(), &'static str> {
 
-        let price_source_list = Self::get_delimited_price_source_list(Self::get_price_source_list(), block_number.into(), max_request_count);
+        let price_source_list = Self::get_delimited_price_source_list(Self::get_price_source_list(T::UseOnChainPriceRequest::get()), block_number.into(), max_request_count);
         let mut price_list = Vec::new();
         for (price_key, request_url, version_num,_update_count) in price_source_list {
 
@@ -586,7 +636,7 @@ impl<T: Config> Pallet<T>
     }
 
     /// Fetch current price and return the result in cents.
-    fn fetch_price_body_with_http(_price_key: Vec<u8>, request_url: &str, version_num: u32) -> Result<u32, http::Error> {
+    fn fetch_price_body_with_http(_price_key: Vec<u8>, request_url: &str, version_num: u32) -> Result<u64, http::Error> {
 
         if "" == request_url {
             log::warn!("ERROR:: Cannot match area pricer url. ");
@@ -624,7 +674,7 @@ impl<T: Config> Pallet<T>
         log::info!("Parse ares json format.");
         match version_num {
             1 => {
-                let price = match Self::parse_price_of_ares(body_str) {
+                let price = match Self::parse_price_of_ares(body_str, T::FractionLengthNum::get()) {
                     Some(price) => Ok(price),
                     None => {
                         log::warn!("Unable to extract price from the response: {:?}", body_str);
@@ -641,7 +691,10 @@ impl<T: Config> Pallet<T>
 
     }
 
-    fn parse_price_of_ares(price_str: &str) -> Option<u32> {
+    fn parse_price_of_ares(price_str: &str, param_length: u32) -> Option<u64> {
+
+        assert!(param_length <= 6, "Fraction length must be less than or equal to 6");
+
         let val = lite_json::parse_json(price_str);
         let price = match val.ok()? {
             JsonValue::Object(obj) => {
@@ -671,12 +724,26 @@ impl<T: Config> Pallet<T>
             _ => return None,
         };
 
-        let exp = price.fraction_length.checked_sub(2).unwrap_or(0);
-        Some(price.integer as u32 * 100 + (price.fraction / 10_u64.pow(exp)) as u32)
+        // let num_fraction= price.fraction;
+        // // let num_fraction_length = num_fraction.to_string().len() as u32;
+        // let num_fraction_length = price.fraction_length;
+        //
+        // let exp = param_length.checked_sub(num_fraction_length).unwrap_or(0);
+        // let result_integer = price.integer as u32 * (10u32.pow(param_length));
+        // let result_fraction = (num_fraction / 10_u64.pow(exp)) as u32;
+        //
+        // Some(result_integer + result_fraction)
+
+        let mut price_fraction = price.fraction ;
+        if price_fraction < 10u64.pow(param_length) {
+            price_fraction *= 10u64.pow(param_length - price.fraction_length);
+        }
+        let exp = price.fraction_length.checked_sub(param_length).unwrap_or(0);
+        Some(price.integer as u64 * (10u64.pow(param_length)) + (price_fraction / 10_u64.pow(exp)))
     }
 
     //
-    fn add_price(who: T::AccountId, price: u32, price_key: Vec<u8>, max_len:u32 ) {
+    fn add_price(who: T::AccountId, price: u64, price_key: Vec<u8>, max_len:u32 ) {
         let key_str = price_key;
         // let price_key = "btc_price".as_bytes().to_vec();
         // 1. Check key exists
@@ -692,7 +759,7 @@ impl<T: Config> Pallet<T>
             <AresPrice<T>>::insert(key_str.clone(), old_price);
         } else {
             // push a new value.
-            let mut new_price: Vec<u32> = Vec::new();
+            let mut new_price: Vec<u64> = Vec::new();
             new_price.push(price.clone());
             <AresPrice<T>>::insert(key_str.clone(), new_price);
         }
@@ -721,18 +788,18 @@ impl<T: Config> Pallet<T>
     }
 
     /// Calculate current average price.
-    fn average_price(price_key_str: Vec<u8>) -> Option<u32> {
+    fn average_price(price_key_str: Vec<u8>) -> Option<u64> {
         let prices = <AresPrice<T>>::get(price_key_str.clone());
         if prices.is_empty() {
             None
         } else {
-            Some(prices.iter().fold(0_u32, |a, b| a.saturating_add(*b)) / prices.len() as u32)
+            Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
         }
     }
 
     fn validate_transaction_parameters_of_ares(
         block_number: &T::BlockNumber,
-        _price_list: Vec<(Vec<u8>, u32)>,
+        _price_list: Vec<(Vec<u8>, u64)>,
     ) -> TransactionValidity {
         // Now let's check if the transaction has any chance to succeed.
         let next_unsigned_at = <NextUnsignedAt<T>>::get();
@@ -751,5 +818,37 @@ impl<T: Config> Pallet<T>
             .longevity(5)
             .propagate(true)
             .build()
+    }
+}
+
+pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    let s: &str = Deserialize::deserialize(de)?;
+    Ok(s.as_bytes().to_vec())
+}
+
+#[derive(Deserialize, Encode, Decode, Clone, Default)]
+struct LocalPriceRequestStorage {
+    // Specify our own deserializing function to convert JSON string to vector of bytes
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    price_key: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    request_url: Vec<u8>,
+    parse_version: u32,
+}
+
+impl fmt::Debug for LocalPriceRequestStorage {
+    // `fmt` converts the vector of bytes inside the struct back to string for
+    //  more friendly display.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{{ price_key: {}, request_url: {}, parse_version: {}}}",
+            str::from_utf8(&self.price_key).map_err(|_| fmt::Error)?,
+            str::from_utf8(&self.request_url).map_err(|_| fmt::Error)?,
+            &self.parse_version,
+        )
     }
 }

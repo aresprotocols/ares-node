@@ -10,3 +10,5 @@
 * `PriceVecMaxSize` is a u32 constant that determines the depth of the prices pool. The setting of this constant will affect the calculation result of the final average.
 * `MaxCountOfPerRequest` is a u32 constant that determines the maximum number of requests per time.
 * `NeedVerifierCheck` is used to determine whether to enable block author matching check. If it is set to true, the keystore of ares must be set to be consistent with the verifier.
+
+## How to add price on 

@@ -23,7 +23,7 @@ use std::sync::Arc;
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{
     H256,
-    offchain::{OffchainWorkerExt, TransactionPoolExt, testing},
+    offchain::{OffchainWorkerExt, TransactionPoolExt, OffchainDbExt, testing::{self, TestOffchainExt, TestTransactionPoolExt}},
     sr25519::Signature,
 };
 
@@ -51,6 +51,8 @@ use sp_staking::SessionIndex;
 use sp_runtime::traits::AppVerify;
 
 use frame_system::{EnsureSignedBy, EnsureRoot};
+use std::convert::TryInto;
+use sp_core::hexdisplay::HexDisplay;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -196,6 +198,8 @@ parameter_types! {
     pub const PriceVecMaxSize: u32 = 3;
     pub const MaxCountOfPerRequest: u8 = 3;
     pub const NeedVerifierCheck: bool = false;
+    pub const UseOnChainPriceRequest: bool = true;
+    pub const FractionLengthNum: u32 = 2;
 }
 
 ord_parameter_types! {
@@ -219,6 +223,8 @@ impl Config for Test {
     type PriceVecMaxSize = PriceVecMaxSize;
     type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
+    type UseOnChainPriceRequest = UseOnChainPriceRequest;
+    type FractionLengthNum = FractionLengthNum;
 }
 
 impl pallet_session::historical::Config for Test {
@@ -377,15 +383,78 @@ fn addprice_of_ares () {
 
 #[test]
 fn parse_price_ares_works() {
+
     let test_data = vec![
-        (get_are_json_of_btc(), Some(5026137)),
-        (get_are_json_of_eth(), Some(310771)),
+        (get_are_json_of_btc(), Some(50261)),
+        (get_are_json_of_eth(), Some(3107)),
+        (get_are_json_of_dot(), Some(35)),
+        (get_are_json_of_xrp(), Some(1)),
     ];
 
     for (json, expected) in test_data {
-        let second = AresOcw::parse_price_of_ares(json);
+        let second = AresOcw::parse_price_of_ares(json, 0);
         assert_eq!(expected, second);
     }
+
+    let test_data = vec![
+        (get_are_json_of_btc(), Some(5026137)),
+        (get_are_json_of_eth(), Some(310771)),
+        (get_are_json_of_dot(), Some(3599)),
+        (get_are_json_of_xrp(), Some(109)),
+    ];
+
+    for (json, expected) in test_data {
+        let second = AresOcw::parse_price_of_ares(json, 2);
+        assert_eq!(expected, second);
+    }
+
+    let test_data = vec![
+        (get_are_json_of_btc(), Some(50261372)),
+        (get_are_json_of_eth(), Some(3107710)),
+        (get_are_json_of_dot(), Some(35992)),
+        (get_are_json_of_xrp(), Some(1092)),
+    ];
+
+    for (json, expected) in test_data {
+        let second = AresOcw::parse_price_of_ares(json, 3);
+        assert_eq!(expected, second);
+    }
+
+    let test_data = vec![
+        (get_are_json_of_btc(), Some(50261372000)),
+        (get_are_json_of_eth(), Some(3107710000)),
+        (get_are_json_of_dot(), Some(35992100)),
+        (get_are_json_of_xrp(), Some(1092720)),
+    ];
+
+    for (json, expected) in test_data {
+        let second = AresOcw::parse_price_of_ares(json, 6);
+        assert_eq!(expected, second);
+    }
+
+    // let test_data = vec![
+    //     (get_are_json_of_btc(), Some(50261372000_000000)),
+    //     (get_are_json_of_eth(), Some(3107710000_000000)),
+    //     (get_are_json_of_dot(), Some(35992100_000000)),
+    //     (get_are_json_of_xrp(), Some(1092720_000000)),
+    // ];
+    //
+    // for (json, expected) in test_data {
+    //     let second = AresOcw::parse_price_of_ares(json, 12);
+    //     assert_eq!(expected, second);
+    // }
+    //
+    // let test_data = vec![
+    //     (get_are_json_of_btc(), Some(50261372000_000000_000000)),
+    //     (get_are_json_of_eth(), Some(3107710000_000000_000000)),
+    //     (get_are_json_of_dot(), Some(35992100_000000_000000)),
+    //     (get_are_json_of_xrp(), Some(1092720_000000_000000)),
+    // ];
+    //
+    // for (json, expected) in test_data {
+    //     let second = AresOcw::parse_price_of_ares(json, 18);
+    //     assert_eq!(expected, second);
+    // }
 }
 
 #[test]
@@ -504,7 +573,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
     let price_payload_b2 = PricePayload {
         block_number: 2, // type is BlockNumber
         price: vec![
-            ("btc_price".as_bytes().to_vec(), 5026137u32),
+            ("btc_price".as_bytes().to_vec(), 5026137u64),
             ("eth_price".as_bytes().to_vec(), 310771),
             ("dot_price".as_bytes().to_vec(), 3599),
             // (PriceKey::PriceKeyIsXRP, 109),
@@ -537,7 +606,6 @@ fn test_request_propose_submit() {
     let mut t = new_test_ext();
 
     t.execute_with(|| {
-
         assert_eq!(AresOcw::prices_requests().len(), 4);
         assert_ok!(AresOcw::request_propose(Origin::root(), toVec("xxx_price"), toVec("http://xxx.com"), 2 ));
         assert_eq!(AresOcw::prices_requests().len(), 5);
@@ -549,7 +617,75 @@ fn test_request_propose_submit() {
         assert_eq!(AresOcw::prices_requests().len(), 5);
         let tmp_result = AresOcw::prices_requests();
         assert_eq!(tmp_result[4], (toVec("xxx_price"), toVec("http://aaa.com"), 3, 2));
+    });
+}
 
+// test construct LocalPriceRequestStorage
+#[test]
+fn test_rebuild_LocalPriceRequestStorage() {
+
+    // let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/btcusdt\",\"parse_version\":1}";
+    // let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"\",\"parse_version\":1}";
+    //
+    // // let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/ethusdt\",\"parse_version\":1}";
+    // let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"\",\"parse_version\":1}";
+    //
+    // let target_json = "{\"price_key\":\"dot_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/dotusdt\",\"parse_version\":1}";
+    // let target_json = "{\"price_key\":\"dot_price\",\"request_url\":\"\",\"parse_version\":1}";
+    //
+    // let target_json = "{\"price_key\":\"xrp_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/xrpusdt\",\"parse_version\":1}";
+    // let target_json = "{\"price_key\":\"xrp_price\",\"request_url\":\"\",\"parse_version\":1}";
+
+    // let target_json_v8 =target_json.encode();
+    // println!("Try : Vec<u8> encode {:?} ", HexDisplay::from(&target_json_v8));
+
+    // let (offchain, state) = testing::TestOffchainExt::new();
+    // let mut t = sp_io::TestExternalities::default();
+
+    let mut t = new_test_ext();
+
+
+    let (offchain, _state) = TestOffchainExt::new();
+    let (pool, state) = TestTransactionPoolExt::new();
+    t.register_extension(OffchainDbExt::new(offchain.clone()));
+    t.register_extension(OffchainWorkerExt::new(offchain));
+    t.register_extension(TransactionPoolExt::new(pool));
+
+
+    t.execute_with(|| {
+
+        assert_eq!(AresOcw::get_price_source_list(true).len(), 4, "There are 4 group data on the chain.");
+        assert_eq!(AresOcw::get_price_source_list(false).len(), 0, "There are 0 group data on the local store.");
+
+        // Test insert new one.
+        let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/btcusdt\",\"parse_version\":1}";
+        let info: Result<Vec<LocalPriceRequestStorage>, ()>  = AresOcw::update_local_price_storage(&target_json);
+        assert_eq!(info.unwrap().len(), 1);
+
+        assert_eq!(AresOcw::get_price_source_list(false).len(), 1);
+
+        // Test insert another.
+        let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/ethusdt\",\"parse_version\":1}";
+        let info: Result<Vec<LocalPriceRequestStorage>, ()>  = AresOcw::update_local_price_storage(&target_json);
+        assert_eq!(info.unwrap().len(), 2);
+
+        assert_eq!(AresOcw::get_price_source_list(false).len(), 2);
+
+        // Test change exists value
+        let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/btcusdt\",\"parse_version\":2}";
+        let info: Result<Vec<LocalPriceRequestStorage>, ()>  = AresOcw::update_local_price_storage(&target_json);
+        assert_eq!(info.clone().unwrap().len(), 2);
+        assert_eq!(info.unwrap()[1].parse_version, 2);
+
+        assert_eq!(AresOcw::get_price_source_list(false).len(), 2);
+
+        // Remove eth_price key
+        let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"\",\"parse_version\":1}";
+        let info: Result<Vec<LocalPriceRequestStorage>, ()>  = AresOcw::update_local_price_storage(&target_json);
+        assert_eq!(info.clone().unwrap().len(), 1);
+        assert_eq!(info.unwrap()[0].price_key, "btc_price".as_bytes().to_vec(), "only btc_price in vec!");
+
+        assert_eq!(AresOcw::get_price_source_list(false).len(), 1);
     });
 }
 
