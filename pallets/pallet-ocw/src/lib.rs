@@ -27,6 +27,9 @@ mod tests;
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ares");
 pub const LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL: &[u8] = b"are-ocw::make_price_request_pool";
 pub const LOCAL_STORAGE_PRICE_REQUEST_LIST: &[u8] = b"are-ocw::price_request_list";
+pub const LOCAL_STORAGE_PRICE_REQUEST_DOMAIN: &[u8] = b"are-ocw::price_request_domain";
+pub const CALCULATION_KIND_AVERAGE: u8 = 1;
+pub const CALCULATION_KIND_MEDIAN: u8 = 2;
 
 // #[derive(Eq, PartialEq, Clone, Encode, Decode, RuntimeDebug)]
 // pub enum PriceKey {
@@ -155,6 +158,9 @@ pub mod pallet {
 
         #[pallet::constant]
         type FractionLengthNum: Get<u32>;
+
+        #[pallet::constant]
+        type CalculationKind: Get<u8>;
 
     }
 
@@ -339,7 +345,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         Vec<u8>,
-        Vec<u64>,
+        Vec<(u64, T::AccountId)>,
         ValueQuery
     >;
 
@@ -477,7 +483,7 @@ impl<T: Config> Pallet<T>
                 (
                     price_key,
                     // sp_std::str::from_utf8(&request_url).unwrap().clone(),
-                    request_url,
+                    Self::make_local_storage_request_uri_by_vec_u8(request_url),
                     parse_version,
                     update_count
                 )
@@ -491,7 +497,7 @@ impl<T: Config> Pallet<T>
                 (
                     local_price.price_key,
                     // sp_std::str::from_utf8(&request_url).unwrap().clone(),
-                    local_price.request_url,
+                    Self::make_local_storage_request_uri_by_vec_u8(local_price.request_url),
                     local_price.parse_version,
                     1u32,
                 )
@@ -500,6 +506,19 @@ impl<T: Config> Pallet<T>
         }
 
         Vec::new()
+    }
+
+    // Get request domain, include TCP protocol, example: http://www.xxxx.com
+    fn get_local_storage_request_domain() -> &'static str {
+        "http://141.164.58.241:5566"
+    }
+
+    fn make_local_storage_request_uri_by_str(sub_path: &str) -> Vec<u8> {
+        Self::make_local_storage_request_uri_by_vec_u8(sub_path.as_bytes().to_vec())
+    }
+    fn make_local_storage_request_uri_by_vec_u8(sub_path: Vec<u8>) -> Vec<u8> {
+        let domain = Self::get_local_storage_request_domain().as_bytes().to_vec();
+        [domain, sub_path].concat()
     }
 
     //
@@ -743,7 +762,7 @@ impl<T: Config> Pallet<T>
     }
 
     //
-    fn add_price(who: T::AccountId, price: u64, price_key: Vec<u8>, max_len:u32 ) {
+    fn add_price(who: T::AccountId, price:u64, price_key: Vec<u8>, max_len:u32 ) {
         let key_str = price_key;
         // let price_key = "btc_price".as_bytes().to_vec();
         // 1. Check key exists
@@ -752,15 +771,15 @@ impl<T: Config> Pallet<T>
             let mut old_price = <AresPrice<T>>::get(key_str.clone());
             let MAX_LEN: usize = max_len.clone() as usize;
             if old_price.len() < MAX_LEN {
-                old_price.push(price.clone());
+                old_price.push((price.clone(), who.clone()));
             } else {
-                old_price[price as usize % MAX_LEN] = price.clone();
+                old_price[price as usize % MAX_LEN] = (price.clone(), who.clone());
             }
             <AresPrice<T>>::insert(key_str.clone(), old_price);
         } else {
             // push a new value.
-            let mut new_price: Vec<u64> = Vec::new();
-            new_price.push(price.clone());
+            let mut new_price: Vec<(u64, T::AccountId)> = Vec::new();
+            new_price.push((price.clone(), who.clone()));
             <AresPrice<T>>::insert(key_str.clone(), new_price);
         }
 
@@ -780,7 +799,7 @@ impl<T: Config> Pallet<T>
             }
         });
 
-        let average = Self::average_price(key_str.clone())
+        let average = Self::average_price(key_str.clone(), T::CalculationKind::get())
             .expect("The average is not empty, because it was just mutated; qed");
         log::info!("Calculate current average price average price is: {} , {:?}", average, key_str);
         // Update avg price
@@ -788,13 +807,33 @@ impl<T: Config> Pallet<T>
     }
 
     /// Calculate current average price.
-    fn average_price(price_key_str: Vec<u8>) -> Option<u64> {
-        let prices = <AresPrice<T>>::get(price_key_str.clone());
+    fn average_price(price_key_str: Vec<u8>, kind: u8 ) -> Option<u64> {
+        let prices_info = <AresPrice<T>>::get(price_key_str.clone());
+        let prices: Vec<u64> = prices_info.into_iter().map(|(price,_)| price ).collect();
+
         if prices.is_empty() {
-            None
-        } else {
-            Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
+            return None;
         }
+
+        Self::calculation_average_price(prices, kind)
+    }
+
+    fn calculation_average_price(mut prices: Vec<u64>, kind: u8) -> Option<u64> {
+        if 2 == kind {
+            // use median
+            prices.sort();
+            if prices.len() % 2 == 0 {
+                // get 2 mid element then calculation average.
+                return Some((prices[prices.len() /2 ] + prices[prices.len() /2 -1]) / 2);
+            } else {
+                // get 1 mid element and return.
+                return Some(prices[prices.len() /2 ]);
+            }
+        }
+        if 1 == kind {
+            return Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
+        }
+        None
     }
 
     fn validate_transaction_parameters_of_ares(

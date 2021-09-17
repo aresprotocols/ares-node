@@ -339,8 +339,8 @@ pub fn testnet_genesis(
         ocw_module: OCWModuleConfig {
             _phantom: Default::default(),
             price_requests: vec![
-                ("btc_price".as_bytes().to_vec(), "http://141.164.58.241:5566/api/getPartyPrice/btcusdt".as_bytes().to_vec(), 1u32, 1u32),
-                ("eth_price".as_bytes().to_vec(), "http://141.164.58.241:5566/api/getPartyPrice/ethusdt".as_bytes().to_vec(), 1u32, 1u32),
+                ("btc_price".as_bytes().to_vec(), "/api/getPartyPrice/btcusdt".as_bytes().to_vec(), 1u32, 1u32),
+                ("eth_price".as_bytes().to_vec(), "/api/getPartyPrice/ethusdt".as_bytes().to_vec(), 1u32, 1u32),
             ]
         },
         vesting: Default::default(),

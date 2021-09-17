@@ -10,8 +10,9 @@ parameter_types! {
 	pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
     pub const NeedVerifierCheck: bool = false;
-    pub const UseOnChainPriceRequest: bool = false;
+    pub const UseOnChainPriceRequest: bool = true;
     pub const FractionLengthNum: u32 = 2;
+    pub const CalculationKind: u8 = 1;
 }
 
 impl pallet_ocw::Config for Runtime {
@@ -27,6 +28,7 @@ impl pallet_ocw::Config for Runtime {
     type NeedVerifierCheck = NeedVerifierCheck;
     type UseOnChainPriceRequest = UseOnChainPriceRequest;
     type FractionLengthNum = FractionLengthNum;
+    type CalculationKind = CalculationKind;
     type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective> ; // frame_system::EnsureRoot<AccountId>;
 }
 
