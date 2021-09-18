@@ -283,6 +283,18 @@ pub fn new_full_base(
 		telemetry: telemetry.as_mut(),
 	})?;
 
+
+	// let key = "0x6172652d6f63773a3a6d616b655f70726963655f726571756573745f706f6f6c";
+	// let body = "0xc1017b2270726963655f6b6579223a226274635f7072696365222c22726571756573745f75726c223a22687474703a2f2f3134312e3136342e35382e3234313a353536362f6170692f676574506172747950726963652f62746375736474222c2270617273655f76657273696f6e223a317d";
+	// // let para
+	// let body = "{\"id\":1, \"jsonrpc\":\"2.0\", \"method\": \"offchain_localStorageSet\", \"params\":[\"PERSISTENT\", \"0x6172652d6f63773a3a6d616b655f70726963655f726571756573745f706f6f6c\", \"0xc1017b2270726963655f6b6579223a226274635f7072696365222c22726571756573745f75726c223a22687474703a2f2f3134312e3136342e35382e3234313a353536362f6170692f676574506172747950726963652f62746375736474222c2270617273655f76657273696f6e223a317d\"]}";
+	let body = "{\"id\":1, \"jsonrpc\":\"2.0\", \"method\": \"offchain_localStorageSet\", \"params\":[\"PERSISTENT\", \"0x6172652d6f63773a3a6d616b655f70726963655f726571756573745f706f6f6c\", \"0xc1017b2270726963655f6b6579223a226274635f7072696365222c22726571756573745f75726c223a22687474703a2f2f3134312e3136342e35382e3234313a353536362f6170692f676574506172747950726963652f62746375736474222c2270617273655f76657273696f6e223a317d\"]}";
+	// rpc_handlers.io_handler().handle_request_sync(body, sc_rpc::Metadata::default());
+	// println!("Ares rpc handler input : {:?}", body);
+	// assert_eq!(_rpc_handlers.io_handler().handle_request_sync(body, sc_rpc::Metadata::default()), Some(r#"{"jsonrpc":"2.0","result":true,"id":1}"#.into()));
+
+	_rpc_handlers.io_handler().handle_request_sync(body, sc_rpc::Metadata::default());
+
 	let (block_import, grandpa_link, babe_link) = import_setup;
 
 	(with_startup_data)(&block_import, &babe_link);
@@ -339,6 +351,7 @@ pub fn new_full_base(
 
 		let babe = sc_consensus_babe::start_babe(babe_config)?;
 		task_manager.spawn_essential_handle().spawn_blocking("babe-proposer", babe);
+
 	}
 
 	// Spawn authority discovery module.
@@ -578,6 +591,7 @@ pub fn new_light_base(
 	})?;
 
 	network_starter.start_network();
+
 	Ok((task_manager, rpc_handlers, client, network, transaction_pool))
 }
 

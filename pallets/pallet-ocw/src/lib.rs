@@ -94,6 +94,9 @@ use frame_system::offchain::{Signer, SendUnsignedTransaction};
 use sp_runtime::offchain::storage::StorageValueRef;
 use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
 
+
+type FractionLength = u32;
+
 #[frame_support::pallet]
 pub mod pallet {
     use frame_support::pallet_prelude::*;
@@ -190,11 +193,6 @@ pub mod pallet {
                 log::info!("Local price request list: {:?}", price_request_vec);
             }
 
-
-            // TODO:: Try simplifying the block_ The acquisition link theory of author can skip pallet_ Authorship, here is a test to see what is returned by babe's findauthor. The work is not completed yet, and other more important work needs to be carried out first.
-            // let digest = <frame_system::Pallet<T>>::digest();
-            // let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-            // TODO:: Try to simplify the method ：： log::info!(" $$$$$$$$$$ FindAuthor {:?}", <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests));
         }
     }
 
@@ -211,20 +209,25 @@ pub mod pallet {
             price_payload: PricePayload< T::Public, T::BlockNumber>,
             _signature: T::Signature
         ) -> DispatchResultWithPostInfo {
+            log::info!("CALL submit_price_unsigned_with_signed_payload 1 " );
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
+
+            log::info!("CALL submit_price_unsigned_with_signed_payload 2 " );
             // Nodes with the right to increase prices
             let price_list = price_payload.price; // price_list: Vec<(PriceKey, u32)>,
 
-            let mut event_result: Vec<(Vec<u8>, u64)> = Vec::new();
-            for (price_key, price) in price_list.clone() {
+            let mut event_result: Vec<(Vec<u8>, u64, FractionLength)> = Vec::new();
+            for (price_key, price,fraction_length) in price_list.clone() {
                 // Add the price to the on-chain list, but mark it as coming from an empty address.
-                Self::add_price(price_payload.public.clone().into_account(), price.clone(), price_key.clone(), T::PriceVecMaxSize::get());
-                event_result.push((price_key,price));
+                log::info!(" Call add_price {:?}", sp_std::str::from_utf8(&price_key));
+                Self::add_price(price_payload.public.clone().into_account(), price.clone(), price_key.clone(), fraction_length, T::PriceVecMaxSize::get());
+                event_result.push((price_key, price, fraction_length));
             }
 
+            log::info!(" Call try to send Event {:?}", &event_result);
             // Self::deposit_event(Event::KittyCreate(who, kitty_id));
-            Self::deposit_event(Event::NewPrice(event_result , price_payload.public.clone().into_account()));
+            Self::deposit_event(Event::NewPrice(event_result, price_payload.public.clone().into_account()));
             // Self::deposit_event(Event::NewPrice(price_list , price_payload.public.clone().into_account()));
 
             // now increment the block number at which we expect next unsigned transaction.
@@ -234,7 +237,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn request_propose(origin: OriginFor<T>, price_key: Vec<u8>, request_url: Vec<u8>, parse_version: u32) -> DispatchResult {
+        pub fn request_propose(origin: OriginFor<T>, price_key: Vec<u8>, request_url: Vec<u8>, parse_version: u32, fraction_num: FractionLength) -> DispatchResult {
             T::RequestOrigin::ensure_origin(origin)?;
 
             // Search exists
@@ -245,20 +248,33 @@ pub mod pallet {
                 for (index, (old_price_key,
                     _old_request_url,
                     _old_parse_version,
-                    old_update_count)) in prices_request.into_iter().enumerate() {
-                    let new_update_count = (*old_update_count).clone().saturating_add(1);
-                    if &price_key == old_price_key {
-                        // add input value
-                        prices_request.push((price_key.clone(), request_url.clone(), parse_version, new_update_count));
+                    old_fraction_count)) in prices_request.clone().into_iter().enumerate() {
+                    if &price_key == &old_price_key {
+
+                        if &"".as_bytes().to_vec() != &request_url {
+                            // add input value
+                            prices_request.push((price_key.clone(), request_url.clone(), parse_version, fraction_num.clone()));
+                        }
+
                         // remove old one
                         prices_request.remove(index);
+
+                        // check fraction number on change
+                        if &old_fraction_count != &fraction_num || &"".as_bytes().to_vec() == &request_url {
+                            if <AresPrice<T>>::contains_key(&price_key) {
+                                // if exists will be empty
+                                <AresPrice<T>>::remove(&price_key);
+                                // TODO:: remove avg
+                            }
+                        }
+
                         // then break for.
                         find_old = true;
                         break;
                     }
                 }
                 if !find_old {
-                    prices_request.push((price_key, request_url, parse_version, 1));
+                    prices_request.push((price_key, request_url, parse_version, fraction_num));
                 }
             });
 
@@ -273,10 +289,8 @@ pub mod pallet {
         where sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
               u64: From<<T as frame_system::Config>::BlockNumber>
     {
-        /// Event generated when new price is accepted to contribute to the average.
-        /// \[price, who\]
-        // NewPrice(u32, Vec<u8>, T::AccountId),
-        NewPrice(Vec<(Vec<u8>, u64)>, T::AccountId),
+        // (price_key, price_val, fraction len)
+        NewPrice(Vec<(Vec<u8>, u64, FractionLength)>, T::AccountId),
     }
 
     #[pallet::validate_unsigned]
@@ -294,7 +308,7 @@ pub mod pallet {
         ) -> TransactionValidity
         {
             if let Call::submit_price_unsigned_with_signed_payload(
-                ref payload, ref signature
+                ref payload, ref signature,
             ) = call {
                 // Get all validators.
                 let current_validators = T::ValidatorSet::validators();
@@ -312,13 +326,11 @@ pub mod pallet {
                 }
 
                 if !find_validator {
-                    log::info!("=============== Validator check failed !!!! ..");
                     return InvalidTransaction::BadProof.into();
                 }
 
                 let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
                 if !signature_valid {
-                    log::info!("=============== BadProof.into() !!!! ..");
                     return InvalidTransaction::BadProof.into();
                 }
                 Self::validate_transaction_parameters_of_ares(&payload.block_number, payload.price.to_vec())
@@ -345,7 +357,9 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         Vec<u8>,
-        Vec<(u64, T::AccountId)>,
+        // price, account, bolcknumber, FractionLength
+        Vec<(u64, T::AccountId, T::BlockNumber, FractionLength)>,
+        // Vec<(u64, T::AccountId)>,
         ValueQuery
     >;
 
@@ -355,7 +369,8 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         Vec<u8>,
-        u64,
+        // price
+        (u64, FractionLength),
         ValueQuery
     >;
 
@@ -414,7 +429,8 @@ pub mod pallet {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct PricePayload<Public, BlockNumber> {
     block_number: BlockNumber,
-    price: Vec<(Vec<u8>, u64)>,
+    // price_key,price_val, fraction len
+    price: Vec<(Vec<u8>, u64, FractionLength)>,
     public: Public,
 }
 
@@ -605,7 +621,7 @@ impl<T: Config> Pallet<T>
     }
 
     // Get the delimited array according to the max request num.
-    fn get_delimited_price_source_list(source_list: Vec<(Vec<u8>, Vec<u8>, u32, u32)>, round_number: u64, max_request_count: u8) -> Vec<( Vec<u8>, Vec<u8>, u32, u32)> {
+    fn get_delimited_price_source_list(source_list: Vec<(Vec<u8>, Vec<u8>, u32, u32)>, round_number: u64, max_request_count: u8) -> Vec<( Vec<u8>, Vec<u8>, u32, FractionLength)> {
         let vec_count = source_list.len() as u8 ;
 
         let remainder_split_num = Self::get_number_of_cycles(vec_count, max_request_count);
@@ -625,13 +641,14 @@ impl<T: Config> Pallet<T>
 
     fn save_fetch_ares_price_and_send_payload_signed(block_number: T::BlockNumber, max_request_count: u8) -> Result<(), &'static str> {
 
+        // TODO:: Test check
         let price_source_list = Self::get_delimited_price_source_list(Self::get_price_source_list(T::UseOnChainPriceRequest::get()), block_number.into(), max_request_count);
         let mut price_list = Vec::new();
-        for (price_key, request_url, version_num,_update_count) in price_source_list {
+        for (price_key, request_url, version_num, fraction_length) in price_source_list {
 
-            if let Ok(price) = Self::fetch_price_body_with_http(price_key.clone(), sp_std::str::from_utf8(&request_url).unwrap(), version_num) {
+            if let Ok(price) = Self::fetch_price_body_with_http(price_key.clone(), sp_std::str::from_utf8(&request_url).unwrap(), version_num, fraction_length) {
                 // add price to price_list
-                price_list.push((price_key, price));
+                price_list.push((price_key, price, fraction_length));
             }
         }
 
@@ -655,7 +672,7 @@ impl<T: Config> Pallet<T>
     }
 
     /// Fetch current price and return the result in cents.
-    fn fetch_price_body_with_http(_price_key: Vec<u8>, request_url: &str, version_num: u32) -> Result<u64, http::Error> {
+    fn fetch_price_body_with_http(_price_key: Vec<u8>, request_url: &str, version_num: u32, fraction_length: FractionLength) -> Result<u64, http::Error> {
 
         if "" == request_url {
             log::warn!("ERROR:: Cannot match area pricer url. ");
@@ -693,7 +710,7 @@ impl<T: Config> Pallet<T>
         log::info!("Parse ares json format.");
         match version_num {
             1 => {
-                let price = match Self::parse_price_of_ares(body_str, T::FractionLengthNum::get()) {
+                let price = match Self::parse_price_of_ares(body_str, fraction_length) {
                     Some(price) => Ok(price),
                     None => {
                         log::warn!("Unable to extract price from the response: {:?}", body_str);
@@ -710,7 +727,7 @@ impl<T: Config> Pallet<T>
 
     }
 
-    fn parse_price_of_ares(price_str: &str, param_length: u32) -> Option<u64> {
+    fn parse_price_of_ares(price_str: &str, param_length: FractionLength) -> Option<u64> {
 
         assert!(param_length <= 6, "Fraction length must be less than or equal to 6");
 
@@ -762,34 +779,42 @@ impl<T: Config> Pallet<T>
     }
 
     //
-    fn add_price(who: T::AccountId, price:u64, price_key: Vec<u8>, max_len:u32 ) {
+    fn add_price(who: T::AccountId, price:u64, price_key: Vec<u8>, fraction_length: FractionLength, max_len:u32 ) {
         let key_str = price_key;
-        // let price_key = "btc_price".as_bytes().to_vec();
+
+        let current_block = <system::Pallet<T>>::block_number();
         // 1. Check key exists
         if <AresPrice<T>>::contains_key(key_str.clone()) {
             // get and reset .
             let mut old_price = <AresPrice<T>>::get(key_str.clone());
+            // check fraction length inconsistent.
+            for (index, (_, _, _, check_fraction)) in old_price.clone().iter().enumerate() {
+                if check_fraction != &fraction_length {
+                    old_price.clear();
+                    break;
+                }
+            }
+
             let MAX_LEN: usize = max_len.clone() as usize;
             if old_price.len() < MAX_LEN {
-                old_price.push((price.clone(), who.clone()));
+                old_price.push((price.clone(), who.clone(), current_block, fraction_length));
             } else {
-                old_price[price as usize % MAX_LEN] = (price.clone(), who.clone());
+                old_price[price as usize % MAX_LEN] = (price.clone(), who.clone(), current_block, fraction_length);
             }
+
             <AresPrice<T>>::insert(key_str.clone(), old_price);
         } else {
             // push a new value.
-            let mut new_price: Vec<(u64, T::AccountId)> = Vec::new();
-            new_price.push((price.clone(), who.clone()));
+            let mut new_price: Vec<(u64, T::AccountId, T::BlockNumber, FractionLength)> = Vec::new();
+            new_price.push((price.clone(), who.clone(), current_block, fraction_length));
             <AresPrice<T>>::insert(key_str.clone(), new_price);
         }
 
         // Get current block number for test.
         let current_block = <system::Pallet<T>>::block_number();
-        log::info!("======= DEBUG:: current blocknum : {:?}, {:?}", current_block, key_str);
 
         <PricesTrace<T>>::mutate(|prices_trace| {
             let author = <pallet_authorship::Pallet<T>>::author();
-            log::info!("LIN:DEBUG price_trace {:?}, {:?}, {:?},{:?},{:?}", key_str, current_block, price.clone(), author.clone(), who.clone());
             let MAX_LEN: usize = max_len.clone() as usize;
             let price_trace_len = prices_trace.len();
             if price_trace_len < MAX_LEN {
@@ -801,20 +826,19 @@ impl<T: Config> Pallet<T>
 
         let average = Self::average_price(key_str.clone(), T::CalculationKind::get())
             .expect("The average is not empty, because it was just mutated; qed");
-        log::info!("Calculate current average price average price is: {} , {:?}", average, key_str);
+        log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
         // Update avg price
-        <AresAvgPrice<T>>::insert(key_str.clone(), average);
+        <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
     }
 
     /// Calculate current average price.
     fn average_price(price_key_str: Vec<u8>, kind: u8 ) -> Option<u64> {
         let prices_info = <AresPrice<T>>::get(price_key_str.clone());
-        let prices: Vec<u64> = prices_info.into_iter().map(|(price,_)| price ).collect();
+        let prices: Vec<u64> = prices_info.into_iter().map(|(price,_,_,_)| price ).collect();
 
         if prices.is_empty() {
             return None;
         }
-
         Self::calculation_average_price(prices, kind)
     }
 
@@ -838,7 +862,7 @@ impl<T: Config> Pallet<T>
 
     fn validate_transaction_parameters_of_ares(
         block_number: &T::BlockNumber,
-        _price_list: Vec<(Vec<u8>, u64)>,
+        _price_list: Vec<(Vec<u8>, u64, FractionLength)>,
     ) -> TransactionValidity {
         // Now let's check if the transaction has any chance to succeed.
         let next_unsigned_at = <NextUnsignedAt<T>>::get();

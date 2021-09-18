@@ -29,7 +29,7 @@ impl pallet_ocw::Config for Runtime {
     type UseOnChainPriceRequest = UseOnChainPriceRequest;
     type FractionLengthNum = FractionLengthNum;
     type CalculationKind = CalculationKind;
-    type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective> ; // frame_system::EnsureRoot<AccountId>;
+    type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, TechnicalCollective> ; // frame_system::EnsureRoot<AccountId>;
 }
 
 //
