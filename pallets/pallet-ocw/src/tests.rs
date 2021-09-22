@@ -527,8 +527,11 @@ fn parse_price_ares_works() {
 
 #[test]
 fn should_make_http_call_and_parse_ares_result() {
+
+    // let mut t = sp_io::TestExternalities::default();
+    let mut t = new_test_ext();
+
     let (offchain, state) = testing::TestOffchainExt::new();
-    let mut t = sp_io::TestExternalities::default();
     t.register_extension(OffchainWorkerExt::new(offchain));
 
     let json_response = get_are_json_of_btc().as_bytes().to_vec();
@@ -547,9 +550,9 @@ fn should_make_http_call_and_parse_ares_result() {
     });
 }
 
-
 #[test]
 fn save_fetch_ares_price_and_send_payload_signed() {
+
     let mut t = new_test_ext();
 
     const PHRASE: &str = "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
@@ -573,6 +576,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
     t.register_extension(TransactionPoolExt::new(pool));
     t.register_extension(KeystoreExt(Arc::new(keystore)));
 
+
     let padding_request = testing::PendingRequest {
         method: "GET".into(),
         uri: "http://141.164.58.241:5566/api/getPartyPrice/xrpusdt".into(),
@@ -580,7 +584,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
         sent: true,
         ..Default::default()
     };
-    println!("{:?}", padding_request);
+
     offchain_state.write().expect_request(padding_request);
 
     let price_payload_b1 = PricePayload {
@@ -590,7 +594,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
             // (PriceKey::PriceKeyIsETH, 310771),
             // (PriceKey::PriceKeyIsDOT, 3599),
             // price_key, price_val, fraction_num
-            ("xrp_price".as_bytes().to_vec(), 109, 4),
+            ("xrp_price".as_bytes().to_vec(), 10927, 4),
         ],
         public: <Test as SigningTypes>::Public::from(public_key),
     };
@@ -639,14 +643,14 @@ fn save_fetch_ares_price_and_send_payload_signed() {
         sent: true,
         ..Default::default()
     });
-
+    //
     let price_payload_b2 = PricePayload {
         block_number: 2, // type is BlockNumber
         price: vec![
             // price_key, price_val, fraction_num
-            ("btc_price".as_bytes().to_vec(), 5026137u64, 4),
-            ("eth_price".as_bytes().to_vec(), 310771, 4),
-            ("dot_price".as_bytes().to_vec(), 3599, 4),
+            ("btc_price".as_bytes().to_vec(), 502613720u64, 4),
+            ("eth_price".as_bytes().to_vec(), 31077100, 4),
+            ("dot_price".as_bytes().to_vec(), 359921, 4),
             // (PriceKey::PriceKeyIsXRP, 109),
         ],
         public: <Test as SigningTypes>::Public::from(public_key),
@@ -688,8 +692,6 @@ fn test_request_propose_submit() {
         assert_eq!(AresOcw::prices_requests().len(), 5);
         let tmp_result = AresOcw::prices_requests();
         assert_eq!(tmp_result[4], (toVec("xxx_price"), toVec("http://aaa.com"), 3, 3));
-
-
     });
 }
 

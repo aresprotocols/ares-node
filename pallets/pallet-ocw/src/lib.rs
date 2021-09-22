@@ -770,9 +770,11 @@ impl<T: Config> Pallet<T>
         //
         // Some(result_integer + result_fraction)
 
+        // println!("param_length - price.fraction_length = {:?} - {:?}",param_length , price.fraction_length );
+
         let mut price_fraction = price.fraction ;
         if price_fraction < 10u64.pow(param_length) {
-            price_fraction *= 10u64.pow(param_length - price.fraction_length);
+            price_fraction *= 10u64.pow(param_length.checked_sub(price.fraction_length).unwrap_or(0));
         }
         let exp = price.fraction_length.checked_sub(param_length).unwrap_or(0);
         Some(price.integer as u64 * (10u64.pow(param_length)) + (price_fraction / 10_u64.pow(exp)))
