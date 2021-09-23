@@ -26,3 +26,4 @@ rls*.log
 .cargo-remote.toml
 **/*.curl
 **/*.private.md
+**/*.private.bak

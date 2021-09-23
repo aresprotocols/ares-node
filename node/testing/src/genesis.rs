@@ -101,8 +101,8 @@ pub fn config_endowed(
 		ocw_module: OCWModuleConfig {
 			_phantom: Default::default(),
 			price_requests: vec![
-				("btc_price".as_bytes().to_vec(), "http://141.164.58.241:5566/api/getPartyPrice/btcusdt".as_bytes().to_vec(), 1u32, 1u32),
-				("eth_price".as_bytes().to_vec(), "http://141.164.58.241:5566/api/getPartyPrice/ethusdt".as_bytes().to_vec(), 1u32, 1u32),
+				("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 1u32, 1u32, 10u8),
+				("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 1u32, 1u32, 10u8),
 			]
 		},
 		vesting: Default::default(),

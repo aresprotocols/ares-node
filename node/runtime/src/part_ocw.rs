@@ -6,10 +6,13 @@ pub type BlockNumber = u32;
 
 parameter_types! {
 	pub const PriceVecMaxSize: u32 = 50;
-    pub const MaxCountOfPerRequest: u8 = 2;
-	pub const UnsignedInterval: u32 = 10;
+    // pub const MaxCountOfPerRequest: u8 = 2;
+	// pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
     pub const NeedVerifierCheck: bool = false;
+    pub const UseOnChainPriceRequest: bool = true;
+    pub const FractionLengthNum: u32 = 2;
+    pub const CalculationKind: u8 = 1;
 }
 
 impl pallet_ocw::Config for Runtime {
@@ -17,13 +20,16 @@ impl pallet_ocw::Config for Runtime {
     type Call = Call;
     type AuthorityId = pallet_ocw::crypto::OcwAuthId ;
     type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
-    type UnsignedInterval = UnsignedInterval;
+    // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
     type ValidatorSet = Historical;
     type PriceVecMaxSize = PriceVecMaxSize;
-    type MaxCountOfPerRequest = MaxCountOfPerRequest;
+    // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
-    type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective> ; // frame_system::EnsureRoot<AccountId>;
+    type UseOnChainPriceRequest = UseOnChainPriceRequest;
+    type FractionLengthNum = FractionLengthNum;
+    type CalculationKind = CalculationKind;
+    type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, TechnicalCollective> ; // frame_system::EnsureRoot<AccountId>;
 }
 
 //

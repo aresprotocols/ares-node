@@ -26,6 +26,8 @@ log = { version = "0.4.14", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 pallet-session = { version = "4.0.0-dev", features = ["historical"], default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 sp-application-crypto = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
+serde = { version = '1.0.130', default-features = false, features = ['derive'] }
+serde_json = { version = '1.0.67', default-features = false, features = ['alloc'] }
 
 [dev-dependencies]
 sp-staking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
