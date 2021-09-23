@@ -251,7 +251,6 @@ pub fn new_full_base(
 		})?;
 
 	if config.offchain_worker.enabled {
-		// TODO::delete for test.
 		sc_service::build_offchain_workers(
 			&config,
 			task_manager.spawn_handle(),

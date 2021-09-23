@@ -93,9 +93,11 @@ pub use pallet::*;
 use frame_system::offchain::{Signer, SendUnsignedTransaction};
 use sp_runtime::offchain::storage::StorageValueRef;
 use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
+use lite_json::NumberValue;
 
 
 type FractionLength = u32;
+type RequestInterval = u8;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -133,13 +135,13 @@ pub mod pallet {
 
 
         /// This ensures that we only accept unsigned transactions once, every `UnsignedInterval` blocks.
-        #[pallet::constant]
-        type UnsignedInterval: Get<Self::BlockNumber>;
-
-        /// A configuration for base priority of unsigned transactions.
-        ///
-        /// This is exposed so that it can be tuned for particular runtime, when
-        /// multiple pallets send unsigned transactions.
+        // #[pallet::constant]
+        // type UnsignedInterval: Get<Self::BlockNumber>;
+        //
+        // /// A configuration for base priority of unsigned transactions.
+        // ///
+        // /// This is exposed so that it can be tuned for particular runtime, when
+        // /// multiple pallets send unsigned transactions.
         #[pallet::constant]
         type UnsignedPriority: Get<TransactionPriority>;
 
@@ -147,8 +149,8 @@ pub mod pallet {
         #[pallet::constant]
         type PriceVecMaxSize: Get<u32>;
 
-        #[pallet::constant]
-        type MaxCountOfPerRequest: Get<u8>;
+        // #[pallet::constant]
+        // type MaxCountOfPerRequest: Get<u8>;
 
         #[pallet::constant]
         type NeedVerifierCheck: Get<bool>;
@@ -186,12 +188,13 @@ pub mod pallet {
                 }
             }
 
-            Self::fetch_local_price_request_info();
+            // TODO:: develop Offchain request loading.
+            // Self::fetch_local_price_request_info();
 
             // TODO:: for debug info
-            if let (_, price_request_vec) = Self::get_local_storage_price_request_list() {
-                log::info!("Local price request list: {:?}", price_request_vec);
-            }
+            // if let (_, price_request_vec) = Self::get_local_storage_price_request_list() {
+            //     log::info!("Local price request list: {:?}", price_request_vec);
+            // }
 
         }
     }
@@ -209,10 +212,12 @@ pub mod pallet {
             price_payload: PricePayload< T::Public, T::BlockNumber>,
             _signature: T::Signature
         ) -> DispatchResultWithPostInfo {
+            // TODO:: will be remove.
             log::info!("CALL submit_price_unsigned_with_signed_payload 1 " );
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
 
+            // TODO:: will be remove.
             log::info!("CALL submit_price_unsigned_with_signed_payload 2 " );
             // Nodes with the right to increase prices
             let price_list = price_payload.price; // price_list: Vec<(PriceKey, u32)>,
@@ -225,19 +230,42 @@ pub mod pallet {
                 event_result.push((price_key, price, fraction_length));
             }
 
+            // TODO:: will be remove.
             log::info!(" Call try to send Event {:?}", &event_result);
             // Self::deposit_event(Event::KittyCreate(who, kitty_id));
             Self::deposit_event(Event::NewPrice(event_result, price_payload.public.clone().into_account()));
             // Self::deposit_event(Event::NewPrice(price_list , price_payload.public.clone().into_account()));
 
             // now increment the block number at which we expect next unsigned transaction.
-            let current_block = <system::Pallet<T>>::block_number();
-            <NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
+            // let current_block = <system::Pallet<T>>::block_number();
+            // <NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
+
             Ok(().into())
         }
 
         #[pallet::weight(0)]
-        pub fn request_propose(origin: OriginFor<T>, price_key: Vec<u8>, request_url: Vec<u8>, parse_version: u32, fraction_num: FractionLength) -> DispatchResult {
+        pub fn revoke_request_propose(origin: OriginFor<T>, price_key: Vec<u8>) -> DispatchResult {
+            T::RequestOrigin::ensure_origin(origin)?;
+
+            <PricesRequests<T>>::mutate(| prices_request| {
+                for (index, (old_price_key,_,_,_,_)) in prices_request.clone().into_iter().enumerate() {
+                    if &price_key == &old_price_key {
+                        // remove old one
+                        prices_request.remove(index);
+                        <AresPrice<T>>::remove(&price_key);
+                        <AresAvgPrice<T>>::remove(&price_key);
+                        break;
+                    }
+                }
+            });
+
+            Self::deposit_event(Event::RevokePriceRequest(price_key));
+
+            Ok(())
+        }
+
+        #[pallet::weight(0)]
+        pub fn request_propose(origin: OriginFor<T>, price_key: Vec<u8>, request_url: Vec<u8>, parse_version: u32, fraction_num: FractionLength, request_interval: RequestInterval) -> DispatchResult {
             T::RequestOrigin::ensure_origin(origin)?;
 
             // Search exists
@@ -248,12 +276,13 @@ pub mod pallet {
                 for (index, (old_price_key,
                     _old_request_url,
                     _old_parse_version,
-                    old_fraction_count)) in prices_request.clone().into_iter().enumerate() {
+                    old_fraction_count,_)) in prices_request.clone().into_iter().enumerate() {
                     if &price_key == &old_price_key {
 
                         if &"".as_bytes().to_vec() != &request_url {
                             // add input value
-                            prices_request.push((price_key.clone(), request_url.clone(), parse_version, fraction_num.clone()));
+                            prices_request.push((price_key.clone(), request_url.clone(), parse_version, fraction_num.clone(), request_interval.clone()));
+                            Self::deposit_event(Event::UpdatePriceRequest(price_key.clone(), request_url.clone(), parse_version.clone(), fraction_num.clone()));
                         }
 
                         // remove old one
@@ -264,7 +293,11 @@ pub mod pallet {
                             if <AresPrice<T>>::contains_key(&price_key) {
                                 // if exists will be empty
                                 <AresPrice<T>>::remove(&price_key);
-                                // TODO:: remove avg
+                            }
+                            // remove avg
+                            if <AresAvgPrice<T>>::contains_key(&price_key) {
+                                // if exists will be empty
+                                <AresAvgPrice<T>>::remove(&price_key);
                             }
                         }
 
@@ -274,7 +307,8 @@ pub mod pallet {
                     }
                 }
                 if !find_old {
-                    prices_request.push((price_key, request_url, parse_version, fraction_num));
+                    prices_request.push((price_key.clone(), request_url.clone(), parse_version.clone(), fraction_num.clone(), request_interval.clone()));
+                    Self::deposit_event(Event::AddPriceRequest(price_key, request_url, parse_version, fraction_num));
                 }
             });
 
@@ -291,6 +325,10 @@ pub mod pallet {
     {
         // (price_key, price_val, fraction len)
         NewPrice(Vec<(Vec<u8>, u64, FractionLength)>, T::AccountId),
+        // Average price update.
+        RevokePriceRequest(Vec<u8>),
+        AddPriceRequest(Vec<u8>, Vec<u8>, u32, FractionLength),
+        UpdatePriceRequest(Vec<u8>, Vec<u8>, u32, FractionLength),
     }
 
     #[pallet::validate_unsigned]
@@ -340,10 +378,9 @@ pub mod pallet {
         }
     }
 
-
-    #[pallet::storage]
-    #[pallet::getter(fn next_unsigned_at)]
-    pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn next_unsigned_at)]
+    // pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     /// A vector of recently submitted prices.
     #[pallet::storage]
@@ -382,7 +419,8 @@ pub mod pallet {
             Vec<u8>, // price key
             Vec<u8>, // request url
             u32, // parse version number.
-            u32, // update count
+            FractionLength,
+            RequestInterval,
         )>,
         ValueQuery
     >;
@@ -393,7 +431,7 @@ pub mod pallet {
               u64: From<<T as frame_system::Config>::BlockNumber>
     {
         pub _phantom: sp_std::marker::PhantomData<T>,
-        pub price_requests: Vec<(Vec<u8>, Vec<u8>, u32, u32)>,
+        pub price_requests: Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval )>,
     }
 
     #[cfg(feature = "std")]
@@ -468,23 +506,23 @@ impl<T: Config> Pallet<T>
         is_same
     }
 
-    // Assert whether the block can be submit price.
-    fn is_submittable_block_now(block_number: T::BlockNumber) ->bool {
-        let next_unsigned_at = <NextUnsignedAt<T>>::get();
-        if next_unsigned_at > block_number {
-            log::info!("Wait next_unsigned_at > block_number = {:?} > {:?}", next_unsigned_at, block_number);
-            return false;
-        }
-        return true;
-    }
+    // // Assert whether the block can be submit price.
+    // fn is_submittable_block_now(block_number: T::BlockNumber) ->bool {
+    //     let next_unsigned_at = <NextUnsignedAt<T>>::get();
+    //     if next_unsigned_at > block_number {
+    //         log::info!("Wait next_unsigned_at > block_number = {:?} > {:?}", next_unsigned_at, block_number);
+    //         return false;
+    //     }
+    //     return true;
+    // }
 
     /// Obtain ares price and submit it.
     fn ares_price_worker(block_number: T::BlockNumber) -> Result<(), &'static str> {
-        if !Self::is_submittable_block_now(block_number) {
-            return Err("It's too early.");
-        }
+        // if !Self::is_submittable_block_now(block_number) {
+        //     return Err("It's too early.");
+        // }
         // let res = Self::fetch_ares_price_and_send_raw_unsigned(block_number); // PriceKey::PRICE_KEY_IS_ETH
-        let res = Self::save_fetch_ares_price_and_send_payload_signed(block_number, T::MaxCountOfPerRequest::get()); // PriceKey::PRICE_KEY_IS_ETH
+        let res = Self::save_fetch_ares_price_and_send_payload_signed(block_number); // PriceKey::PRICE_KEY_IS_ETH
         if let Err(e) = res {
             log::error!("ERROR:: fetch_ares_price_and_send_raw_unsigned on offchain 2: {:?}", e);
         }
@@ -492,35 +530,72 @@ impl<T: Config> Pallet<T>
     }
 
     // get uri key raw of ARES price
-    fn get_price_source_list (read_chain_data: bool) ->Vec<(Vec<u8>, Vec<u8>, u32, u32)> {
+    fn get_price_source_list (read_chain_data: bool) ->Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval)> {
         // Use the on chain storage data mode.
         if read_chain_data {
-            let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = <PricesRequests<T>>::get().into_iter().map(|(price_key,request_url,parse_version,update_count)|{
+            let result:Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval)> = <PricesRequests<T>>::get().into_iter().map(|(price_key,request_url,parse_version,fraction_length, request_interval)|{
                 (
                     price_key,
                     // sp_std::str::from_utf8(&request_url).unwrap().clone(),
                     Self::make_local_storage_request_uri_by_vec_u8(request_url),
                     parse_version,
-                    update_count
+                    fraction_length,
+                    request_interval,
                 )
             }).collect() ;
             return result;
         }
 
         // read local storage
-        if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
-            let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = price_request_vec.into_iter().map(|local_price|{
+        // TODO:: This version will be delete
+        // if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
+        //     let result:Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval)> = price_request_vec.into_iter().map(|local_price|{
+        //         (
+        //             local_price.price_key,
+        //             // sp_std::str::from_utf8(&request_url).unwrap().clone(),
+        //             Self::make_local_storage_request_uri_by_vec_u8(local_price.request_url),
+        //             local_price.parse_version,
+        //             1u32,
+        //             1u32,
+        //         )
+        //     }).collect() ;
+        //     return result;
+        // }
+
+        Vec::new()
+    }
+
+    // get uri key raw of ARES price
+    fn get_raw_price_source_list (read_chain_data: bool)->Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval)>{
+        // Use the on chain storage data mode.
+        if read_chain_data {
+            let result:Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval)> = <PricesRequests<T>>::get().into_iter().map(|(price_key,request_url,parse_version,fraction_length, request_interval)|{
                 (
-                    local_price.price_key,
+                    price_key,
                     // sp_std::str::from_utf8(&request_url).unwrap().clone(),
-                    Self::make_local_storage_request_uri_by_vec_u8(local_price.request_url),
-                    local_price.parse_version,
-                    1u32,
+                    request_url,
+                    parse_version,
+                    fraction_length,
+                    request_interval,
                 )
             }).collect() ;
             return result;
         }
 
+        // TODO::Will be delete.
+        // // read local storage
+        // if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
+        //     let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = price_request_vec.into_iter().map(|local_price|{
+        //         (
+        //             local_price.price_key,
+        //             // sp_std::str::from_utf8(&request_url).unwrap().clone(),
+        //             local_price.request_url,
+        //             local_price.parse_version,
+        //             1u32,
+        //         )
+        //     }).collect() ;
+        //     return result;
+        // }
         Vec::new()
     }
 
@@ -621,6 +696,7 @@ impl<T: Config> Pallet<T>
     }
 
     // Get the delimited array according to the max request num.
+    // TODO:: out of date, will be del.
     fn get_delimited_price_source_list(source_list: Vec<(Vec<u8>, Vec<u8>, u32, u32)>, round_number: u64, max_request_count: u8) -> Vec<( Vec<u8>, Vec<u8>, u32, FractionLength)> {
         let vec_count = source_list.len() as u8 ;
 
@@ -639,16 +715,26 @@ impl<T: Config> Pallet<T>
         source_list[begin_index as usize .. end_index as usize].to_vec()
     }
 
-    fn save_fetch_ares_price_and_send_payload_signed(block_number: T::BlockNumber, max_request_count: u8) -> Result<(), &'static str> {
+    fn save_fetch_ares_price_and_send_payload_signed(block_number: T::BlockNumber) -> Result<(), &'static str> {
 
-        // TODO:: Test check
-        let price_source_list = Self::get_delimited_price_source_list(Self::get_price_source_list(T::UseOnChainPriceRequest::get()), block_number.into(), max_request_count);
+        // TODO:: Test check ! not used
+        // let price_source_list = Self::get_delimited_price_source_list(Self::get_price_source_list(T::UseOnChainPriceRequest::get()), block_number.into(), max_request_count);
         let mut price_list = Vec::new();
-        for (price_key, request_url, version_num, fraction_length) in price_source_list {
 
-            if let Ok(price) = Self::fetch_price_body_with_http(price_key.clone(), sp_std::str::from_utf8(&request_url).unwrap(), version_num, fraction_length) {
-                // add price to price_list
-                price_list.push((price_key, price, fraction_length));
+        // for (price_key, request_url, version_num, fraction_length) in price_source_list {
+        //
+        //     if let Ok(price) = Self::fetch_price_body_with_http(price_key.clone(), sp_std::str::from_utf8(&request_url).unwrap(), version_num, fraction_length) {
+        //         // add price to price_list
+        //         price_list.push((price_key, price, fraction_length));
+        //     }
+        // }
+
+        // TODO:: The parse version is now fixed, and there should be a better way to handle it.
+        let price_result = Self::fetch_bulk_price_with_http(block_number, 2).ok().unwrap();
+        for (price_key, price_option, fraction_length ) in price_result {
+            if price_option.is_some() {
+                // record price to vec!
+                price_list.push((price_key, price_option.unwrap(), fraction_length));
             }
         }
 
@@ -669,6 +755,121 @@ impl<T: Config> Pallet<T>
             result.map_err(|()| "+++++++++ Unable to submit transaction")?;
         }
         Ok(())
+    }
+
+    // TODO:: not imp
+    fn make_bulk_price_request_url(format: Vec<(Vec<u8>, Vec<u8>, FractionLength)>) -> Vec<u8> {
+        // "http://141.164.58.241:5566/api/getBulkPrices".as_bytes().to_vec()
+        let raw_request_url = Self::make_local_storage_request_uri_by_vec_u8("/api/getBulkPrices".as_bytes().to_vec());
+        let mut request_url = Vec::new();
+        for (_, extract_key, _ ) in format {
+            if request_url.len() == 0 {
+                request_url = [raw_request_url.clone(), "?symbol=".as_bytes().to_vec() , extract_key].concat();
+            }else {
+                request_url = [request_url, "_".as_bytes().to_vec(), extract_key].concat();
+            }
+        }
+        request_url
+    }
+
+    // Make bulk request format array.
+    fn make_bulk_price_format_data(block_number: T::BlockNumber) -> Vec<(Vec<u8>, Vec<u8>, FractionLength)> {
+        // let FRACTION_NUM_2:u32 = 2 ;
+        // let FRACTION_NUM_3:u32 = 3 ;
+        // let FRACTION_NUM_4:u32 = 4 ;
+        // let FRACTION_NUM_5:u32 = 5 ;
+        // // Bulk parse
+        // // defined parse format
+        // let mut format = Vec::new();
+        // format.push(("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), FRACTION_NUM_2));
+        // format.push(("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), FRACTION_NUM_3));
+        // format.push(("dot_price".as_bytes().to_vec(), "dotusdt".as_bytes().to_vec(), FRACTION_NUM_4));
+        // format.push(("xrp_price".as_bytes().to_vec(), "xrpusdt".as_bytes().to_vec(), FRACTION_NUM_5));
+        //
+        // format
+
+        let mut format = Vec::new();
+        let mut debug_arr: Vec<(&str,&str,u32)> = Vec::new();
+        // price_key, request_url, parse_version, fraction_length
+        let source_list = Self::get_raw_price_source_list(T::UseOnChainPriceRequest::get());
+        // if request is '/api/getBulkPrices'
+        // source_list.into_iter().map(|(price_key, request_url, parse_version, fraction_length)| {
+        //
+        // })
+
+        log::info!("LIN::DEBUG A::source_list length = {:?}", source_list.len());
+
+        // TODO:: In the new version, it is more important to control the request interval here.
+        for (price_key, extract_key, parse_version, fraction_length, request_interval) in source_list {
+            if 2 == parse_version {
+                let round_number: u64 = block_number.into();
+                let remainder : u64 =  (round_number % request_interval as u64).into();
+                if 0 == remainder {
+                    let debug_price_key = price_key.clone();
+                    // let debug_extract_key = price_key.clone();
+                    // debug_arr.push((sp_std::str::from_utf8(&debug_price_key), sp_std::str::from_utf8(&debug_extract_key), fraction_length.clone()));
+                    log::info!(" LIN::DEBUG B:: BN= {:?} request_interval = {:?} , key = {:?}", request_interval, block_number, sp_std::str::from_utf8(&debug_price_key));
+                    format.push((price_key, extract_key, fraction_length));
+
+                }
+            }
+        }
+
+        log::info!("Ares will be request list :: {:?}", format.clone());
+
+        format
+    }
+
+    //
+    fn fetch_bulk_price_with_http(block_number: T::BlockNumber, version_num: u8) ->  Result<Vec<(Vec<u8>, Option<u64>, FractionLength)>, http::Error> {
+        // Get current available price list.
+        let format_arr = Self::make_bulk_price_format_data(block_number);
+        // make request url
+        let request_url = Self::make_bulk_price_request_url(format_arr.clone());
+        let request_url = sp_std::str::from_utf8(&request_url).unwrap();
+
+        // request and return http body.
+        if "" == request_url {
+            log::warn!("ERROR:: Cannot match area pricer url. return empty. ");
+            return Ok(Vec::new());
+            // return Err(http::Error::Unknown);
+        }
+        log::info!("Go to bulk fetch_price_of_ares on http. request is : {:?}", request_url);
+        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
+        let request = http::Request::get(
+            request_url.clone()
+        );
+        let pending = request
+            .deadline(deadline)
+            .send()
+            .map_err(|_| http::Error::IoError)?;
+        let response = pending.try_wait(deadline)
+            .map_err(|e| {
+                log::warn!("ERROR:: The network cannot connect. http::Error::DeadlineReached == {:?} ", e);
+                http::Error::DeadlineReached
+            })??;
+        if response.code != 200 {
+            log::warn!("ERROR:: Unexpected status code: {}", response.code);
+            return Err(http::Error::Unknown);
+        }
+        let body = response.body().collect::<Vec<u8>>();
+        // Create a str slice from the body.
+        let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+            log::warn!("Error:: Extracting body, No UTF8 body");
+            http::Error::Unknown
+        })?;
+
+        // TODO:: Not work
+        // match version_num {
+        //     1 => {
+        //         let format_arr = Self::make_bulk_price_format_data();
+        //         return Ok(Self::bulk_parse_price_of_ares(body_str, format_arr));
+        //     }
+        //     _ => {}
+        // }
+        // Err(http::Error::Unknown)
+
+        Ok(Self::bulk_parse_price_of_ares(body_str, format_arr))
     }
 
     /// Fetch current price and return the result in cents.
@@ -727,6 +928,88 @@ impl<T: Config> Pallet<T>
 
     }
 
+    // handler for bulk_parse_price_of_ares
+    fn extract_bulk_price_by_json_value ( json_val : JsonValue, find_key: &str, param_length: FractionLength) -> Option<u64> {
+
+        assert!(param_length <= 6, "Fraction length must be less than or equal to 6");
+
+        let price_value = match json_val {
+            JsonValue::Object(obj) => {
+                // TODO:: need test again.
+
+                let find_result = obj.into_iter().find(|(k, _)| {
+                    // let tmp_k = k.iter().copied();
+                    k.iter().copied().eq(find_key.chars())
+                });
+
+                match find_result {
+                    None => { return None; }
+                    Some((_, sub_val)) => {
+                        match sub_val {
+                            JsonValue::Object(price_obj) => {
+                                let (_, price) = price_obj.into_iter().find(|(k, _)| {
+                                    // println!("find(k) B = {:?}", k);
+                                    // let tmp_k = k.iter().copied();
+                                    k.iter().copied().eq("price".chars())
+                                }).unwrap();
+                                // println!("price = {:?}", price);
+                                match price {
+                                    JsonValue::Number(number) => number,
+                                    _ => return None,
+                                }
+                            }
+                            _ => { return None; }
+                        }
+                    }
+                }
+            }
+            _ => { return None; }
+        };
+
+        // Make u64 with fraction length
+        let result_price = Self::format_price_fraction_to_u64(price_value, param_length);
+        // A price of 0 means that the correct result of the data is not obtained.
+        if result_price == 0 {
+            return None;
+        }
+        Some(result_price)
+    }
+
+    /// format: ()
+    fn bulk_parse_price_of_ares( price_str: &str, format: Vec<(Vec<u8>, Vec<u8>, FractionLength)> ) -> Vec<(Vec<u8>, Option<u64>, FractionLength)> {
+        let val = lite_json::parse_json(price_str);
+
+        let mut result_vec = Vec::new();
+        match val.ok() {
+            None => { return Vec::new(); }
+            Some(obj) => {
+                match obj {
+                    JsonValue::Object(obj) => {
+                        // find code root.
+                        let (_, v_data) = obj.into_iter()
+                            .find(|(k, _)| {
+                                let _tmp_k = k.iter().copied();
+                                k.iter().copied().eq("data".chars())
+                            }).unwrap();
+                        // println!("v_data = {:?}", v_data);
+
+                        for (price_key, extract_key, fraction_length) in format {
+                            let extract_key = sp_std::str::from_utf8(&extract_key).unwrap();
+                            let extract_price = Self::extract_bulk_price_by_json_value(v_data.clone(), extract_key, fraction_length);
+                            // println!(" extract_price = {:?}", extract_price);
+                            if extract_price.is_some() {
+                                result_vec.push((price_key, extract_price, fraction_length));
+                            }
+                        }
+                    },
+                    _ => return Vec::new(),
+                }
+            }
+        }
+
+        result_vec
+    }
+
     fn parse_price_of_ares(price_str: &str, param_length: FractionLength) -> Option<u64> {
 
         assert!(param_length <= 6, "Fraction length must be less than or equal to 6");
@@ -759,25 +1042,17 @@ impl<T: Config> Pallet<T>
             }
             _ => return None,
         };
+        Some(Self::format_price_fraction_to_u64(price, param_length))
+    }
 
-        // let num_fraction= price.fraction;
-        // // let num_fraction_length = num_fraction.to_string().len() as u32;
-        // let num_fraction_length = price.fraction_length;
-        //
-        // let exp = param_length.checked_sub(num_fraction_length).unwrap_or(0);
-        // let result_integer = price.integer as u32 * (10u32.pow(param_length));
-        // let result_fraction = (num_fraction / 10_u64.pow(exp)) as u32;
-        //
-        // Some(result_integer + result_fraction)
-
-        // println!("param_length - price.fraction_length = {:?} - {:?}",param_length , price.fraction_length );
-
-        let mut price_fraction = price.fraction ;
+    //
+    fn format_price_fraction_to_u64 ( json_number: NumberValue, param_length: FractionLength) -> u64 {
+        let mut price_fraction = json_number.fraction ;
         if price_fraction < 10u64.pow(param_length) {
-            price_fraction *= 10u64.pow(param_length.checked_sub(price.fraction_length).unwrap_or(0));
+            price_fraction *= 10u64.pow(param_length.checked_sub(json_number.fraction_length).unwrap_or(0));
         }
-        let exp = price.fraction_length.checked_sub(param_length).unwrap_or(0);
-        Some(price.integer as u64 * (10u64.pow(param_length)) + (price_fraction / 10_u64.pow(exp)))
+        let exp = json_number.fraction_length.checked_sub(param_length).unwrap_or(0);
+        json_number.integer as u64 * (10u64.pow(param_length)) + (price_fraction / 10_u64.pow(exp))
     }
 
     //
@@ -826,11 +1101,17 @@ impl<T: Config> Pallet<T>
             }
         });
 
-        let average = Self::average_price(key_str.clone(), T::CalculationKind::get())
-            .expect("The average is not empty, because it was just mutated; qed");
-        log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
-        // Update avg price
-        <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
+        // Check price pool deep reaches the maximum value, and if so, calculated the average.
+        if  <AresPrice<T>>::get(key_str.clone()).len() >= max_len as usize {
+            let average = Self::average_price(key_str.clone(), T::CalculationKind::get())
+                .expect("The average is not empty.");
+            log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
+            // Update avg price
+            <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
+        }else{
+            <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
+        }
+
     }
 
     /// Calculate current average price.
@@ -866,20 +1147,23 @@ impl<T: Config> Pallet<T>
         block_number: &T::BlockNumber,
         _price_list: Vec<(Vec<u8>, u64, FractionLength)>,
     ) -> TransactionValidity {
-        // Now let's check if the transaction has any chance to succeed.
-        let next_unsigned_at = <NextUnsignedAt<T>>::get();
-        if &next_unsigned_at > block_number {
-            return InvalidTransaction::Stale.into();
-        }
+
+        // // Now let's check if the transaction has any chance to succeed.
+        // let next_unsigned_at = <NextUnsignedAt<T>>::get();
+        // if &next_unsigned_at > block_number {
+        //     return InvalidTransaction::Stale.into();
+        // }
+
         // Let's make sure to reject transactions from the future.
         let current_block = <system::Pallet<T>>::block_number();
         if &current_block < block_number {
             return InvalidTransaction::Future.into();
         }
+
         // TODO::This tag prefix need change.
         ValidTransaction::with_tag_prefix("pallet-ocw::validate_transaction_parameters_of_ares")
             .priority(T::UnsignedPriority::get())
-            .and_provides(next_unsigned_at)
+            .and_provides(block_number) // next_unsigned_at
             .longevity(5)
             .propagate(true)
             .build()

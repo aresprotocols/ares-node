@@ -6,8 +6,8 @@ pub type BlockNumber = u32;
 
 parameter_types! {
 	pub const PriceVecMaxSize: u32 = 50;
-    pub const MaxCountOfPerRequest: u8 = 2;
-	pub const UnsignedInterval: u32 = 10;
+    // pub const MaxCountOfPerRequest: u8 = 2;
+	// pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
     pub const NeedVerifierCheck: bool = false;
     pub const UseOnChainPriceRequest: bool = true;
@@ -20,11 +20,11 @@ impl pallet_ocw::Config for Runtime {
     type Call = Call;
     type AuthorityId = pallet_ocw::crypto::OcwAuthId ;
     type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
-    type UnsignedInterval = UnsignedInterval;
+    // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
     type ValidatorSet = Historical;
     type PriceVecMaxSize = PriceVecMaxSize;
-    type MaxCountOfPerRequest = MaxCountOfPerRequest;
+    // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
     type UseOnChainPriceRequest = UseOnChainPriceRequest;
     type FractionLengthNum = FractionLengthNum;
