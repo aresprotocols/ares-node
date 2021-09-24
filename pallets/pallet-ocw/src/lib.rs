@@ -145,9 +145,10 @@ pub mod pallet {
         #[pallet::constant]
         type UnsignedPriority: Get<TransactionPriority>;
 
-        // A configuration for PricePayload::price size.
-        #[pallet::constant]
-        type PriceVecMaxSize: Get<u32>;
+        // // A configuration for PricePayload::price size.
+        // // TODO:: will be del.
+        // #[pallet::constant]
+        // type PriceVecMaxSize: Get<u32>;
 
         // #[pallet::constant]
         // type MaxCountOfPerRequest: Get<u8>;
@@ -212,26 +213,23 @@ pub mod pallet {
             price_payload: PricePayload< T::Public, T::BlockNumber>,
             _signature: T::Signature
         ) -> DispatchResultWithPostInfo {
-            // TODO:: will be remove.
-            log::info!("CALL submit_price_unsigned_with_signed_payload 1 " );
+
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
 
-            // TODO:: will be remove.
-            log::info!("CALL submit_price_unsigned_with_signed_payload 2 " );
             // Nodes with the right to increase prices
             let price_list = price_payload.price; // price_list: Vec<(PriceKey, u32)>,
 
             let mut event_result: Vec<(Vec<u8>, u64, FractionLength)> = Vec::new();
-            for (price_key, price,fraction_length) in price_list.clone() {
+            for (price_key, price,fraction_length,_) in price_list.clone() {
                 // Add the price to the on-chain list, but mark it as coming from an empty address.
-                log::info!(" Call add_price {:?}", sp_std::str::from_utf8(&price_key));
-                Self::add_price(price_payload.public.clone().into_account(), price.clone(), price_key.clone(), fraction_length, T::PriceVecMaxSize::get());
+                // log::info!(" Call add_price {:?}", sp_std::str::from_utf8(&price_key));
+                Self::add_price(price_payload.public.clone().into_account(), price.clone(), price_key.clone(), fraction_length, Self::get_price_pool_depth());
                 event_result.push((price_key, price, fraction_length));
             }
 
-            // TODO:: will be remove.
-            log::info!(" Call try to send Event {:?}", &event_result);
+            // // TODO:: will be remove.
+            // log::info!("Call try to send Event {:?}", &event_result);
             // Self::deposit_event(Event::KittyCreate(who, kitty_id));
             Self::deposit_event(Event::NewPrice(event_result, price_payload.public.clone().into_account()));
             // Self::deposit_event(Event::NewPrice(price_list , price_payload.public.clone().into_account()));
@@ -315,6 +313,55 @@ pub mod pallet {
 
             Ok(())
         }
+
+
+        #[pallet::weight(0)]
+        pub fn pool_depth_propose(origin: OriginFor<T>, depth: u32) -> DispatchResult {
+            T::RequestOrigin::ensure_origin(origin)?;
+            // Judge the value must be greater than 0 and less than the maximum of U32
+            assert!( depth > 0 && depth < u32::MAX, "Depth wrong value range.");
+
+            // get old depth number
+            let old_depth = <PricePoolDepth<T>>::get();
+
+            assert_ne!(old_depth, depth, "Depth of change cannot be the same.");
+
+            <PricePoolDepth<T>>::set(depth.clone());
+            Self::deposit_event(Event::PricePoolDepthUpdate(depth));
+
+            if depth > old_depth {
+                <PricesRequests<T>>::get().into_iter().any(|(price_key,_,_,_,_)|{
+                    // clear average.
+                    <AresAvgPrice<T>>::remove(&price_key);
+                    false
+                }) ;
+            }else {
+                <PricesRequests<T>>::get().into_iter().any(|(price_key,_,_,_,_)|{
+
+                    // clear average.
+                    let old_price_list = <AresPrice<T>>::get(price_key.clone());
+                    let depth_usize =  depth as usize;
+                    // check length
+                    if old_price_list.len() > depth_usize {
+                        let diff_len = old_price_list.len() - depth_usize;
+                        let mut new_price_list = Vec::new();
+                        for (index, value) in old_price_list.into_iter().enumerate() {
+                            if !(index < diff_len) {
+                                // kick out old value.
+                                new_price_list.push(value);
+                            }
+                        }
+
+                        // Reduce the depth.
+                        <AresPrice<T>>::insert(price_key.clone(), new_price_list);
+                    }
+                    // need to recalculate the average.
+                    Self::update_avg_price_storage(price_key, depth);
+                    false
+                }) ;
+            }
+            Ok(())
+        }
     }
 
     /// Events for the pallet.
@@ -330,6 +377,8 @@ pub mod pallet {
         RevokePriceRequest(Vec<u8>),
         AddPriceRequest(Vec<u8>, Vec<u8>, u32, FractionLength),
         UpdatePriceRequest(Vec<u8>, Vec<u8>, u32, FractionLength),
+        //
+        PricePoolDepthUpdate(u32),
     }
 
     #[pallet::validate_unsigned]
@@ -412,6 +461,15 @@ pub mod pallet {
         ValueQuery
     >;
 
+
+    #[pallet::storage]
+    #[pallet::getter(fn price_pool_depth)]
+    pub(super) type PricePoolDepth<T: Config> = StorageValue<
+        _,
+        u32,
+        ValueQuery
+    >;
+
     #[pallet::storage]
     #[pallet::getter(fn prices_requests)]
     pub(super) type PricesRequests<T: Config> = StorageValue<
@@ -432,6 +490,7 @@ pub mod pallet {
               u64: From<<T as frame_system::Config>::BlockNumber>
     {
         pub _phantom: sp_std::marker::PhantomData<T>,
+        pub price_pool_depth: u32,
         pub price_requests: Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval )>,
     }
 
@@ -443,6 +502,7 @@ pub mod pallet {
         fn default() -> Self {
             GenesisConfig {
                 _phantom: Default::default(),
+                price_pool_depth: 10u32,
                 price_requests: Vec::new(),
             }
         }
@@ -457,10 +517,35 @@ pub mod pallet {
             if !self.price_requests.is_empty() {
                 PricesRequests::<T>::put(&self.price_requests);
             }
+            if self.price_pool_depth > 0 {
+                PricePoolDepth::<T>::put(&self.price_pool_depth);
+            }
         }
     }
 
 }
+
+// warp NumberValue
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct JsonNumberValue {
+    pub integer: i64,
+    pub fraction: u64,
+    pub fraction_length: u32,
+    pub exponent: i32,
+}
+
+//
+impl JsonNumberValue {
+    pub fn new(number_value: NumberValue) -> Self {
+        Self {
+            fraction_length : number_value.fraction_length,
+            fraction : number_value.fraction,
+            exponent : number_value.exponent,
+            integer : number_value.integer,
+        }
+    }
+}
+
 
 
 /// Payload used by this example crate to hold price
@@ -469,7 +554,7 @@ pub mod pallet {
 pub struct PricePayload<Public, BlockNumber> {
     block_number: BlockNumber,
     // price_key,price_val, fraction len
-    price: Vec<(Vec<u8>, u64, FractionLength)>,
+    price: Vec<(Vec<u8>, u64, FractionLength, JsonNumberValue)>,
     public: Public,
 }
 
@@ -732,10 +817,10 @@ impl<T: Config> Pallet<T>
 
         // TODO:: The parse version is now fixed, and there should be a better way to handle it.
         let price_result = Self::fetch_bulk_price_with_http(block_number, 2).ok().unwrap();
-        for (price_key, price_option, fraction_length ) in price_result {
+        for (price_key, price_option, fraction_length , json_number_value) in price_result {
             if price_option.is_some() {
                 // record price to vec!
-                price_list.push((price_key, price_option.unwrap(), fraction_length));
+                price_list.push((price_key, price_option.unwrap(), fraction_length, JsonNumberValue::new(json_number_value)));
             }
         }
 
@@ -822,7 +907,7 @@ impl<T: Config> Pallet<T>
     }
 
     //
-    fn fetch_bulk_price_with_http(block_number: T::BlockNumber, version_num: u8) ->  Result<Vec<(Vec<u8>, Option<u64>, FractionLength)>, http::Error> {
+    fn fetch_bulk_price_with_http(block_number: T::BlockNumber, version_num: u8) ->  Result<Vec<(Vec<u8>, Option<u64>, FractionLength, NumberValue)>, http::Error> {
         // Get current available price list.
         let format_arr = Self::make_bulk_price_format_data(block_number);
         // make request url
@@ -930,7 +1015,7 @@ impl<T: Config> Pallet<T>
     }
 
     // handler for bulk_parse_price_of_ares
-    fn extract_bulk_price_by_json_value ( json_val : JsonValue, find_key: &str, param_length: FractionLength) -> Option<u64> {
+    fn extract_bulk_price_by_json_value ( json_val : JsonValue, find_key: &str, param_length: FractionLength) -> Option<(u64, NumberValue)> {
 
         assert!(param_length <= 6, "Fraction length must be less than or equal to 6");
 
@@ -968,16 +1053,16 @@ impl<T: Config> Pallet<T>
         };
 
         // Make u64 with fraction length
-        let result_price = Self::format_price_fraction_to_u64(price_value, param_length);
+        let result_price = Self::format_price_fraction_to_u64(price_value.clone(), param_length);
         // A price of 0 means that the correct result of the data is not obtained.
         if result_price == 0 {
             return None;
         }
-        Some(result_price)
+        Some((result_price, price_value))
     }
 
     /// format: ()
-    fn bulk_parse_price_of_ares( price_str: &str, format: Vec<(Vec<u8>, Vec<u8>, FractionLength)> ) -> Vec<(Vec<u8>, Option<u64>, FractionLength)> {
+    fn bulk_parse_price_of_ares( price_str: &str, format: Vec<(Vec<u8>, Vec<u8>, FractionLength)> ) -> Vec<(Vec<u8>, Option<u64>, FractionLength, NumberValue)> {
         let val = lite_json::parse_json(price_str);
 
         let mut result_vec = Vec::new();
@@ -996,10 +1081,12 @@ impl<T: Config> Pallet<T>
 
                         for (price_key, extract_key, fraction_length) in format {
                             let extract_key = sp_std::str::from_utf8(&extract_key).unwrap();
-                            let extract_price = Self::extract_bulk_price_by_json_value(v_data.clone(), extract_key, fraction_length);
+                            let extract_price_grp = Self::extract_bulk_price_by_json_value(v_data.clone(), extract_key, fraction_length);
                             // println!(" extract_price = {:?}", extract_price);
-                            if extract_price.is_some() {
-                                result_vec.push((price_key, extract_price, fraction_length));
+                            if extract_price_grp.is_some() {
+                                let (extract_price, json_number_value) = extract_price_grp.unwrap();
+                                // TODO::need recheck why use Some(extract_price)
+                                result_vec.push((price_key, Some(extract_price), fraction_length, json_number_value));
                             }
                         }
                     },
@@ -1056,6 +1143,12 @@ impl<T: Config> Pallet<T>
         json_number.integer as u64 * (10u64.pow(param_length)) + (price_fraction / 10_u64.pow(exp))
     }
 
+    // Get price pool size
+    fn get_price_pool_depth () ->u32 {
+        // T::PriceVecMaxSize::get()
+        <PricePoolDepth<T>>::get()
+    }
+
     //
     fn add_price(who: T::AccountId, price:u64, price_key: Vec<u8>, fraction_length: FractionLength, max_len:u32 ) {
         let key_str = price_key;
@@ -1073,14 +1166,44 @@ impl<T: Config> Pallet<T>
                 }
             }
 
+            let mut new_price = Vec::new();
             let MAX_LEN: usize = max_len.clone() as usize;
-            if old_price.len() < MAX_LEN {
-                old_price.push((price.clone(), who.clone(), current_block, fraction_length));
-            } else {
-                old_price[price as usize % MAX_LEN] = (price.clone(), who.clone(), current_block, fraction_length);
+
+            for (index, value) in old_price.iter().enumerate() {
+                if old_price.len() >= MAX_LEN && 0 == index {
+                    continue;
+                }
+                let new_value = (*value).clone();
+                new_price.push(new_value);
             }
 
-            <AresPrice<T>>::insert(key_str.clone(), old_price);
+            // if old_price.len() >= MAX_LEN {
+            //     // old_price.push((price.clone(), who.clone(), current_block, fraction_length));
+            //     // <AresPrice<T>>::insert(key_str.clone(), old_price);
+            //     // let mut new_price = Vec::new();
+            //     for (index, value) in old_price.iter().enumerate() {
+            //         if 0 != index {
+            //             let new_value = (*value).clone();
+            //             new_price.push(new_value);
+            //         }
+            //     }
+            // }else{
+            //
+            // }
+            // else {
+            //     let mut new_price = Vec::new();
+            //     for (index, value) in old_price.iter().enumerate() {
+            //         if 0 != index {
+            //             new_price.push(value);
+            //         }
+            //     }
+            //     // <AresPrice<T>>::insert(key_str.clone(), new_price);
+            //     // old_price[price as usize % MAX_LEN] = (price.clone(), who.clone(), current_block, fraction_length);
+            //     // old_price[price as usize % MAX_LEN] = (price.clone(), who.clone(), current_block, fraction_length);
+            // }
+
+            new_price.push((price.clone(), who.clone(), current_block, fraction_length));
+            <AresPrice<T>>::insert(key_str.clone(), new_price);
         } else {
             // push a new value.
             let mut new_price: Vec<(u64, T::AccountId, T::BlockNumber, FractionLength)> = Vec::new();
@@ -1102,16 +1225,18 @@ impl<T: Config> Pallet<T>
             }
         });
 
-        // Check price pool deep reaches the maximum value, and if so, calculated the average.
-        if  <AresPrice<T>>::get(key_str.clone()).len() >= max_len as usize {
-            let average = Self::average_price(key_str.clone(), T::CalculationKind::get())
-                .expect("The average is not empty.");
-            log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
-            // Update avg price
-            <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
-        }else{
-            <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
-        }
+        // // Check price pool deep reaches the maximum value, and if so, calculated the average.
+        // if  <AresPrice<T>>::get(key_str.clone()).len() >= max_len as usize {
+        //     let average = Self::average_price(key_str.clone(), T::CalculationKind::get())
+        //         .expect("The average is not empty.");
+        //     log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
+        //     // Update avg price
+        //     <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
+        // }else{
+        //     <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
+        // }
+
+        Self::update_avg_price_storage(key_str.clone(), max_len);
 
         // Check if the price request exists, if not, clear storage data.
         let price_request_list = <PricesRequests<T>>::get();
@@ -1123,21 +1248,52 @@ impl<T: Config> Pallet<T>
         }
     }
 
+    fn update_avg_price_storage(key_str: Vec<u8>, max_len: u32) {
+        // Check price pool deep reaches the maximum value, and if so, calculated the average.
+        if  <AresPrice<T>>::get(key_str.clone()).len() >= max_len as usize {
+            let (average,fraction_length) = Self::average_price(key_str.clone(), T::CalculationKind::get())
+                .expect("The average is not empty.");
+            log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
+            // Update avg price
+            <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
+        }else{
+            <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
+        }
+    }
+
     //
     fn clear_price_storage_data(price_key: Vec<u8>) {
         <AresPrice<T>>::remove(&price_key);
         <AresAvgPrice<T>>::remove(&price_key);
     }
 
-    /// Calculate current average price.
-    fn average_price(price_key_str: Vec<u8>, kind: u8 ) -> Option<u64> {
+    /// Calculate current average price. // fraction_length: FractionLength
+    fn average_price(price_key_str: Vec<u8>, kind: u8 ) -> Option<(u64, FractionLength)> {
         let prices_info = <AresPrice<T>>::get(price_key_str.clone());
+        let mut fraction_length_of_pool : FractionLength  = 0;
+        // Check and get fraction_length.
+        prices_info.clone().into_iter().any(|(_,_,_,tmp_fraction)| {
+            if 0 == fraction_length_of_pool {
+                fraction_length_of_pool = tmp_fraction;
+            }
+            if fraction_length_of_pool != tmp_fraction {
+                panic!("Inconsistent of fraction lenght.")
+            }
+            false
+        }) ;
+
         let prices: Vec<u64> = prices_info.into_iter().map(|(price,_,_,_)| price ).collect();
 
         if prices.is_empty() {
             return None;
         }
-        Self::calculation_average_price(prices, kind)
+        match Self::calculation_average_price(prices, kind) {
+            Some(price_value) => {
+                return Some((price_value, fraction_length_of_pool));
+            },
+            _ => {}
+        }
+        None
     }
 
     fn calculation_average_price(mut prices: Vec<u64>, kind: u8) -> Option<u64> {
@@ -1160,7 +1316,7 @@ impl<T: Config> Pallet<T>
 
     fn validate_transaction_parameters_of_ares(
         block_number: &T::BlockNumber,
-        _price_list: Vec<(Vec<u8>, u64, FractionLength)>,
+        _price_list: Vec<(Vec<u8>, u64, FractionLength, JsonNumberValue)>,
     ) -> TransactionValidity {
 
         // // Now let's check if the transaction has any chance to succeed.

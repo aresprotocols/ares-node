@@ -338,12 +338,12 @@ pub fn testnet_genesis(
         },
         ocw_module: OCWModuleConfig {
             _phantom: Default::default(),
+            price_pool_depth: 3u32,
             price_requests: vec![
                 // price_key, request_uri, parse_version, fraction_num, request interval
                 ("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 2u32, 4, 10),
                 ("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 2u32, 4, 10),
                 // ("eth_price,dot_price".as_bytes().to_vec(), "/api/getPartyPrice/ethusdt,dotusdt".as_bytes().to_vec(), 2u32, 4),
-
             ]
         },
         vesting: Default::default(),
