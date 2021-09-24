@@ -356,12 +356,14 @@ fn test_connect_request_url(){
 #[test]
 fn addprice_of_ares () {
     let (offchain, _state) = testing::TestOffchainExt::new();
-    let mut t = sp_io::TestExternalities::default();
+    // let mut t = sp_io::TestExternalities::default();
+    let mut t = new_test_ext();
     t.register_extension(OffchainWorkerExt::new(offchain));
 
     t.execute_with(|| {
-        System::set_block_number(1);
+        // The request key must be configured, otherwise you cannot submit the price. so you need => new_test_ext()
 
+        System::set_block_number(1);
         // when
         let price_key = "btc_price".as_bytes().to_vec();// PriceKey::PriceKeyIsBTC ;
         AresOcw::add_price(Default::default(), 8888, price_key.clone(), 4, 2);
@@ -417,7 +419,8 @@ fn addprice_of_ares () {
 #[test]
 fn test_request_price_update_then_the_price_list_will_be_update_if_the_fractioin_length_changed () {
     let (offchain, _state) = testing::TestOffchainExt::new();
-    let mut t = sp_io::TestExternalities::default();
+    // let mut t = sp_io::TestExternalities::default();
+    let mut t = new_test_ext();
     t.register_extension(OffchainWorkerExt::new(offchain));
 
     t.execute_with(|| {

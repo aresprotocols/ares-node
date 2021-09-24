@@ -252,8 +252,9 @@ pub mod pallet {
                     if &price_key == &old_price_key {
                         // remove old one
                         prices_request.remove(index);
-                        <AresPrice<T>>::remove(&price_key);
-                        <AresAvgPrice<T>>::remove(&price_key);
+                        // <AresPrice<T>>::remove(&price_key);
+                        // <AresAvgPrice<T>>::remove(&price_key);
+                        Self::clear_price_storage_data(price_key.clone());
                         break;
                     }
                 }
@@ -789,7 +790,7 @@ impl<T: Config> Pallet<T>
         // format
 
         let mut format = Vec::new();
-        let mut debug_arr: Vec<(&str,&str,u32)> = Vec::new();
+        // let mut debug_arr: Vec<(&str,&str,u32)> = Vec::new();
         // price_key, request_url, parse_version, fraction_length
         let source_list = Self::get_raw_price_source_list(T::UseOnChainPriceRequest::get());
         // if request is '/api/getBulkPrices'
@@ -1112,6 +1113,20 @@ impl<T: Config> Pallet<T>
             <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
         }
 
+        // Check if the price request exists, if not, clear storage data.
+        let price_request_list = <PricesRequests<T>>::get();
+        let has_key = price_request_list.iter().any(|(any_price, _, _, _, _)|{
+            any_price == &key_str
+        });
+        if !has_key {
+            Self::clear_price_storage_data(key_str);
+        }
+    }
+
+    //
+    fn clear_price_storage_data(price_key: Vec<u8>) {
+        <AresPrice<T>>::remove(&price_key);
+        <AresAvgPrice<T>>::remove(&price_key);
     }
 
     /// Calculate current average price.
