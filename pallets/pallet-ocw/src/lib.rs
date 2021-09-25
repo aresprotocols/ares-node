@@ -528,20 +528,23 @@ pub mod pallet {
 // warp NumberValue
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct JsonNumberValue {
-    pub integer: i64,
+    pub integer: u64,
     pub fraction: u64,
     pub fraction_length: u32,
-    pub exponent: i32,
+    pub exponent: u32,
 }
 
 //
 impl JsonNumberValue {
     pub fn new(number_value: NumberValue) -> Self {
+        if number_value.integer < 0 || number_value.exponent < 0 {
+            panic!("Error source NumberValue integer or exponent");
+        }
         Self {
             fraction_length : number_value.fraction_length,
             fraction : number_value.fraction,
-            exponent : number_value.exponent,
-            integer : number_value.integer,
+            exponent : number_value.exponent as u32,
+            integer : number_value.integer as u64,
         }
     }
 }
