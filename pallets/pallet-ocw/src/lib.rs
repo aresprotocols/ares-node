@@ -217,6 +217,11 @@ pub mod pallet {
             // This ensures that the function can only be called via unsigned transaction.
             ensure_none(origin)?;
 
+            // let signature_valid = <PricePayload<
+            //     T::Public, T::BlockNumber
+            // > as SignedPayload<T>>::verify::<crypto::OcwAuthId>(&price_payload, signature.clone());
+            // assert!(signature_valid);
+
             // TODO:: will be remove.
             log::info!("CALL submit_price_unsigned_with_signed_payload 2 " );
             // Nodes with the right to increase prices
@@ -367,6 +372,7 @@ pub mod pallet {
                     return InvalidTransaction::BadProof.into();
                 }
 
+
                 let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
                 if !signature_valid {
                     return InvalidTransaction::BadProof.into();
@@ -395,7 +401,7 @@ pub mod pallet {
         Blake2_128Concat,
         Vec<u8>,
         // price, account, bolcknumber, FractionLength
-        Vec<(u64, T::AccountId, T::BlockNumber, FractionLength)>,
+        Vec<(u64, T::AccountId, T::BlockNumber, FractionLength, JsonN)>,
         // Vec<(u64, T::AccountId)>,
         ValueQuery
     >;

@@ -757,6 +757,10 @@ fn save_fetch_ares_price_and_send_payload_signed() {
 
     // let signature = price_payload.sign::<crypto::TestAuthId>().unwrap();
     t.execute_with(|| {
+
+        // price_payload_b1.sign::
+
+
         // when execute blocknumber = 1
         // <Test as crate::Config>::MaxCountOfPerRequest::get() will be del.
         AresOcw::save_fetch_ares_price_and_send_payload_signed(1).unwrap();
@@ -765,6 +769,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
         let tx = Extrinsic::decode(&mut &*tx).unwrap();
         assert_eq!(tx.signature, None);
         if let Call::AresOcw(crate::Call::submit_price_unsigned_with_signed_payload(body, signature)) = tx.call {
+            println!("signature = {:?}", signature);
             assert_eq!(body.clone(), price_payload_b1);
             let signature_valid = <PricePayload<
                 <Test as SigningTypes>::Public,
