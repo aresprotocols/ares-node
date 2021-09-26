@@ -5,7 +5,7 @@ use pallet_ocw;
 pub type BlockNumber = u32;
 
 parameter_types! {
-	pub const PriceVecMaxSize: u32 = 50;
+	// pub const PriceVecMaxSize: u32 = 50;
     // pub const MaxCountOfPerRequest: u8 = 2;
 	// pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
@@ -23,7 +23,7 @@ impl pallet_ocw::Config for Runtime {
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
     type ValidatorSet = Historical;
-    type PriceVecMaxSize = PriceVecMaxSize;
+    // type PriceVecMaxSize = PriceVecMaxSize;
     // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
     type UseOnChainPriceRequest = UseOnChainPriceRequest;

@@ -54,6 +54,7 @@ use sp_runtime::traits::AppVerify;
 use frame_system::{EnsureSignedBy, EnsureRoot};
 use std::convert::TryInto;
 use sp_core::hexdisplay::HexDisplay;
+use lite_json::JsonValue::Null;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -196,7 +197,7 @@ parameter_types! {
 	// pub const GracePeriod: u64 = 5;
 	pub const UnsignedInterval: u64 = 128;
 	pub const UnsignedPriority: u64 = 1 << 20;
-    pub const PriceVecMaxSize: u32 = 3;
+    // pub const PriceVecMaxSize: u32 = 3;
     pub const MaxCountOfPerRequest: u8 = 3;
     pub const NeedVerifierCheck: bool = false;
     pub const UseOnChainPriceRequest: bool = true;
@@ -222,7 +223,7 @@ impl Config for Test {
     type RequestOrigin = frame_system::EnsureRoot<AccountId>;
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
-    type PriceVecMaxSize = PriceVecMaxSize;
+    // type PriceVecMaxSize = PriceVecMaxSize;
     // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
     type UseOnChainPriceRequest = UseOnChainPriceRequest;
@@ -356,20 +357,22 @@ fn test_connect_request_url(){
 #[test]
 fn addprice_of_ares () {
     let (offchain, _state) = testing::TestOffchainExt::new();
-    let mut t = sp_io::TestExternalities::default();
+    // let mut t = sp_io::TestExternalities::default();
+    let mut t = new_test_ext();
     t.register_extension(OffchainWorkerExt::new(offchain));
 
     t.execute_with(|| {
-        System::set_block_number(1);
+        // The request key must be configured, otherwise you cannot submit the price. so you need => new_test_ext()
 
+        System::set_block_number(1);
         // when
         let price_key = "btc_price".as_bytes().to_vec();// PriceKey::PriceKeyIsBTC ;
-        AresOcw::add_price(Default::default(), 8888, price_key.clone(), 4, 2);
-        AresOcw::add_price(Default::default(), 9999, price_key.clone(), 4, 2);
+        AresOcw::add_price(Default::default(), 8888, price_key.clone(), 4, Default::default() ,2);
+        AresOcw::add_price(Default::default(), 9999, price_key.clone(), 4, Default::default(), 2);
 
         let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
-        // (price_val, accountid, block_num, fraction_num)
-        assert_eq!(vec![(8888,Default::default(), 1, 4), (9999,Default::default(), 1, 4)], btc_price_list);
+        // (price_val, accountid, block_num, fraction_num, json_number_value)
+        assert_eq!(vec![(8888,Default::default(), 1, 4, Default::default()), (9999,Default::default(), 1, 4, Default::default())], btc_price_list);
 
         let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
         assert_eq!(bet_avg_price, ((8888 + 9999) /2, 4) , "Only test ares_avg_prices ");
@@ -378,46 +381,136 @@ fn addprice_of_ares () {
         // assert_eq!(bet_avg_price, ((8888 + 9999 + 3333) / 3, 4), "Get in.");
 
         // Add a new value beyond the array boundary.
-        AresOcw::add_price(Default::default(), 3333, price_key.clone(), 4, 2);
+        AresOcw::add_price(Default::default(), 3333, price_key.clone(), 4, Default::default(), 2);
         let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
         // (price_val, accountid, block_num, fraction_num)
-        assert_eq!(vec![(8888, Default::default(), 1, 4), (3333, Default::default(), 1, 4)], btc_price_list);
+        assert_eq!(vec![(9999, Default::default(), 1, 4, Default::default()), (3333, Default::default(), 1, 4, Default::default())], btc_price_list);
 
         let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
-        assert_eq!(bet_avg_price, ((8888 + 3333) / 2, 4));
+        assert_eq!(bet_avg_price, ((9999 + 3333) / 2, 4));
 
         // when
         let price_key = "eth_price".as_bytes().to_vec() ;// PriceKey::PriceKeyIsETH ;
-        AresOcw::add_price(Default::default(), 7777, price_key.clone(), 4, 2);
+        AresOcw::add_price(Default::default(), 7777, price_key.clone(), 4, Default::default(), 2);
         let btc_price_list = AresOcw::ares_prices("eth_price".as_bytes().to_vec().clone());
         // (price_val, accountid, block_num, fraction_num)
-        assert_eq!(vec![(7777, Default::default(), 1, 4)], btc_price_list);
+        assert_eq!(vec![(7777, Default::default(), 1, 4, Default::default())], btc_price_list);
 
         let bet_avg_price = AresOcw::ares_avg_prices("eth_price".as_bytes().to_vec().clone());
         assert_eq!(bet_avg_price, (0, 0), "Price pool is not full.");
 
-        AresOcw::add_price(Default::default(), 6666, price_key.clone(), 4, 2);
+        AresOcw::add_price(Default::default(), 6666, price_key.clone(), 4, Default::default(), 2);
         let btc_price_list = AresOcw::ares_prices("eth_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(7777, Default::default(), 1, 4), (6666, Default::default(), 1, 4)], btc_price_list);
+        assert_eq!(vec![(7777, Default::default(), 1, 4, Default::default()), (6666, Default::default(), 1, 4, Default::default())], btc_price_list);
 
         let bet_avg_price = AresOcw::ares_avg_prices("eth_price".as_bytes().to_vec().clone());
         assert_eq!(bet_avg_price, ((7777 + 6666) / 2, 4));
 
         // Add a new value beyond the array boundary.
-        AresOcw::add_price(Default::default(), 1111, price_key.clone(), 4, 2);
+        AresOcw::add_price(Default::default(), 1111, price_key.clone(), 4, Default::default(), 2);
         let btc_price_list = AresOcw::ares_prices("eth_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(7777, Default::default(), 1, 4), (1111, Default::default(), 1, 4)], btc_price_list);
+        assert_eq!(vec![(6666, Default::default(), 1, 4, Default::default()), (1111, Default::default(), 1, 4, Default::default())], btc_price_list);
 
         let bet_avg_price = AresOcw::ares_avg_prices("eth_price".as_bytes().to_vec().clone());
-        assert_eq!(bet_avg_price, ((7777 + 1111) / 2, 4));
+        assert_eq!(bet_avg_price, ((6666 + 1111) / 2, 4));
 
     });
 }
 
 #[test]
+fn test_get_price_pool_depth () {
+    let (offchain, _state) = testing::TestOffchainExt::new();
+    // let mut t = sp_io::TestExternalities::default();
+    let mut t = new_test_ext();
+    t.register_extension(OffchainWorkerExt::new(offchain));
+
+    t.execute_with(|| {
+
+        // let BN:u64 = 2;
+        // System::set_block_number(BN);
+
+        // In the genesis config default pool depth is 3.
+        assert_eq!(3, AresOcw::get_price_pool_depth());
+
+        // Test input some price
+        let price_key = "btc_price".as_bytes().to_vec();
+        AresOcw::add_price(Default::default(), 6660, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        AresOcw::add_price(Default::default(), 8880, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        assert_eq!(bet_avg_price, (0, 0));
+        AresOcw::add_price(Default::default(), 7770, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        assert_eq!(3 as usize, AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone()).len());
+        let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        assert_eq!(bet_avg_price, (7770, 4));
+
+        // Update depth to 5
+        // if parse version change
+        // assert_ok!(AresOcw::pool_depth_propose(Origin::root(), 5));
+        // assert_eq!(5, AresOcw::get_price_pool_depth());
+        // let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        // assert_eq!(bet_avg_price, (0, 0));
+        //
+        // AresOcw::add_price(Default::default(), 5550, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        // AresOcw::add_price(Default::default(), 6660, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        // let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        // assert_eq!(bet_avg_price, (6660, 4));
+        //
+        // // Fall back depth to 3
+        // assert_ok!(AresOcw::pool_depth_propose(Origin::root(), 3));
+        // AresOcw::add_price(Default::default(), 4440, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        // assert_eq!(3, AresOcw::get_price_pool_depth());
+        // // println!("== A {:?}", AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone()) );
+        // assert_eq!(3 as usize, AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone()).len());
+        // let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        // assert_eq!(bet_avg_price, (5550, 4));
+        //
+        // AresOcw::add_price(Default::default(), 4440, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        // AresOcw::add_price(Default::default(), 4440, price_key.clone(), 4, Default::default(), AresOcw::get_price_pool_depth());
+        // assert_eq!(3 as usize, AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone()).len(), "Should 4440");
+        // // println!("== B {:?}", AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone()) );
+        // let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        // assert_eq!(bet_avg_price, (4440, 4));
+    });
+}
+
+#[test]
+fn test_json_number_value_to_price () {
+    // number =
+    let number1 = JsonNumberValue {
+        integer: 8,
+        fraction: 87654,
+        fraction_length: 5,
+        exponent: 0
+    };
+    assert_eq!(8876540 , number1.toPrice(6));
+    assert_eq!(887654 , number1.toPrice(5));
+    assert_eq!(88765 , number1.toPrice(4));
+    assert_eq!(8876 , number1.toPrice(3));
+    assert_eq!(887 , number1.toPrice(2));
+    assert_eq!(88 , number1.toPrice(1));
+    assert_eq!(8 , number1.toPrice(0));
+
+    let number3 = JsonNumberValue {
+        integer: 6,
+        fraction: 654,
+        fraction_length: 3,
+        exponent: 0
+    };
+    assert_eq!(6654000 , number3.toPrice(6));
+    assert_eq!(665400 , number3.toPrice(5));
+    assert_eq!(66540 , number3.toPrice(4));
+    assert_eq!(6654 , number3.toPrice(3));
+    assert_eq!(665 , number3.toPrice(2));
+    assert_eq!(66 , number3.toPrice(1));
+    assert_eq!(6 , number3.toPrice(0));
+
+}
+
+#[test]
 fn test_request_price_update_then_the_price_list_will_be_update_if_the_fractioin_length_changed () {
     let (offchain, _state) = testing::TestOffchainExt::new();
-    let mut t = sp_io::TestExternalities::default();
+    // let mut t = sp_io::TestExternalities::default();
+    let mut t = new_test_ext();
     t.register_extension(OffchainWorkerExt::new(offchain));
 
     t.execute_with(|| {
@@ -425,34 +518,64 @@ fn test_request_price_update_then_the_price_list_will_be_update_if_the_fractioin
         let BN:u64 = 2;
         System::set_block_number(BN);
 
+        // number =
+        let number1 = JsonNumberValue {
+            integer: 8,
+            fraction: 87654,
+            fraction_length: 5,
+            exponent: 0
+        };
+        let number2 = JsonNumberValue {
+            integer: 7,
+            fraction: 76543,
+            fraction_length: 5,
+            exponent: 0
+        };
+        let number3 = JsonNumberValue {
+            integer: 6,
+            fraction: 654,
+            fraction_length: 3,
+            exponent: 0
+        };
+
+
         // when
         let price_key = "btc_price".as_bytes().to_vec();// PriceKey::PriceKeyIsBTC ;
-        AresOcw::add_price(Default::default(), 8888, price_key.clone(), 4, 2);
+        AresOcw::add_price(Default::default(), number1.toPrice(4), price_key.clone(), 4, number1.clone(), 2);
         let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(8888,Default::default(), BN, 4)], btc_price_list);
-
-        AresOcw::add_price(Default::default(), 9999, price_key.clone(), 4, 2);
-        let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(8888,Default::default(), BN, 4), (9999,Default::default(), BN, 4)], btc_price_list);
-        let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
-        assert_eq!(bet_avg_price, ((8888 + 9999) / 2, 4));
-
-        // then fraction changed, old price list will be empty.
-        AresOcw::add_price(Default::default(), 6666, price_key.clone(), 3, 2);
-        let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(6666,Default::default(), BN, 3)], btc_price_list);
+        assert_eq!(vec![(number1.toPrice(4), Default::default(), BN, 4, number1.clone())], btc_price_list);
         let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
         assert_eq!(bet_avg_price, (0, 0));
+
+        AresOcw::add_price(Default::default(), number2.toPrice(4), price_key.clone(), 4, number2.clone(), 2);
+        let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
+        assert_eq!(vec![(number1.toPrice(4),Default::default(), BN, 4, number1.clone()), (number2.toPrice(4),Default::default(), BN, 4, number2.clone())], btc_price_list);
+        let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        assert_eq!(bet_avg_price, ((number1.toPrice(4) + number2.toPrice(4)) / 2, 4));
+
+        // then fraction changed, old price list will be update to new fraction length.
+        AresOcw::add_price(Default::default(), number3.toPrice(3), price_key.clone(), 3, number3.clone(), 2);
+        let btc_price_list = AresOcw::ares_prices("btc_price".as_bytes().to_vec().clone());
+        assert_eq!(vec![ (number2.toPrice(3),Default::default(), BN, 3, number2.clone()),
+                         (number3.toPrice(3), Default::default(), BN, 3, number3.clone())
+                        ], btc_price_list);
+        let bet_avg_price = AresOcw::ares_avg_prices("btc_price".as_bytes().to_vec().clone());
+        // assert_eq!(bet_avg_price, (0, 0));
+        assert_eq!(bet_avg_price, ((
+                                    number2.toPrice(3) +
+                                    number3.toPrice(3)
+                                   ) / 2, 3));
     });
 }
 
 #[test]
 fn bulk_parse_price_ares_works() {
+
     let FRACTION_NUM_2:u32 = 2 ;
     let FRACTION_NUM_3:u32 = 3 ;
     let FRACTION_NUM_4:u32 = 4 ;
     let FRACTION_NUM_5:u32 = 5 ;
-    let FRACTION_NUM_6:u32 = 6;
+    let FRACTION_NUM_6:u32 = 6 ;
 
     // Bulk parse
     // defined parse format
@@ -466,11 +589,40 @@ fn bulk_parse_price_ares_works() {
 
     let result_bulk_parse = AresOcw::bulk_parse_price_of_ares(get_are_json_of_bulk(), format);
 
+    let test_number_value = NumberValue {
+        integer: 0,
+        fraction: 0,
+        fraction_length: 0,
+        exponent: 0
+    };
+
     let mut bulk_expected = Vec::new();
-    bulk_expected.push((toVec("btc_price"), Some(5026137), FRACTION_NUM_2));
-    bulk_expected.push((toVec("eth_price"), Some(3107710), FRACTION_NUM_3));
-    bulk_expected.push((toVec("dot_price"), Some(359921), FRACTION_NUM_4));
-    bulk_expected.push((toVec("xrp_price"), Some(109272), FRACTION_NUM_5));
+    bulk_expected.push((toVec("btc_price"), Some(5026137), FRACTION_NUM_2, NumberValue {
+        integer: 50261,
+        fraction: 372,
+        fraction_length: 3,
+        exponent: 0
+    }));
+    bulk_expected.push((toVec("eth_price"), Some(3107710), FRACTION_NUM_3, NumberValue {
+        integer: 3107,
+        fraction: 71,
+        fraction_length: 2,
+        exponent: 0
+    }));
+    bulk_expected.push((toVec("dot_price"), Some(359921), FRACTION_NUM_4, NumberValue {
+        integer: 35,
+        fraction: 9921,
+        fraction_length: 4,
+        exponent: 0
+    }));
+    bulk_expected.push((toVec("xrp_price"), Some(109272), FRACTION_NUM_5, NumberValue {
+        integer: 1,
+        fraction: 9272,
+        fraction_length: 5,
+        exponent: 0
+    }));
+
+    // println!("!!!!!!!!{:?}", result_bulk_parse);
 
     assert_eq!(result_bulk_parse, bulk_expected);
 
@@ -490,10 +642,30 @@ fn bulk_parse_price_ares_works() {
     let result_bulk_parse = AresOcw::bulk_parse_price_of_ares(get_are_json_of_bulk_of_xxxusdt_is_0(), format);
 
     let mut bulk_expected = Vec::new();
-    bulk_expected.push((toVec("btc_price"), Some(5026137), FRACTION_NUM_2));
-    bulk_expected.push((toVec("eth_price"), Some(3107710), FRACTION_NUM_3));
-    bulk_expected.push((toVec("dot_price"), Some(359921), FRACTION_NUM_4));
-    bulk_expected.push((toVec("xrp_price"), Some(109272), FRACTION_NUM_5));
+    bulk_expected.push((toVec("btc_price"), Some(5026137), FRACTION_NUM_2, NumberValue {
+        integer: 50261,
+        fraction: 372,
+        fraction_length: 3,
+        exponent: 0
+    }));
+    bulk_expected.push((toVec("eth_price"), Some(3107710), FRACTION_NUM_3, NumberValue {
+        integer: 3107,
+        fraction: 71,
+        fraction_length: 2,
+        exponent: 0
+    }));
+    bulk_expected.push((toVec("dot_price"), Some(359921), FRACTION_NUM_4, NumberValue {
+        integer: 35,
+        fraction: 9921,
+        fraction_length: 4,
+        exponent: 0
+    }));
+    bulk_expected.push((toVec("xrp_price"), Some(109272), FRACTION_NUM_5, NumberValue {
+        integer: 1,
+        fraction: 9272,
+        fraction_length: 5,
+        exponent: 0
+    }));
 
     assert_eq!(result_bulk_parse, bulk_expected);
 }
@@ -744,7 +916,12 @@ fn save_fetch_ares_price_and_send_payload_signed() {
     let price_payload_b1 = PricePayload {
         block_number: 1, // type is BlockNumber
         price: vec![
-            ("btc_price".as_bytes().to_vec(), 502613720u64, 4),
+            ("btc_price".as_bytes().to_vec(), 502613720u64, 4, JsonNumberValue{
+                integer: 50261,
+                fraction: 372,
+                fraction_length: 3,
+                exponent: 0
+            }),
             // ("eth_price".as_bytes().to_vec(), 31077100, 4),
             // ("dot_price".as_bytes().to_vec(), 359921, 4),
             // ("xrp_price".as_bytes().to_vec(), 10927, 4),
@@ -886,11 +1063,11 @@ fn test_request_propose_submit_impact_on_the_price_pool() {
 
         // Add some price
         let price_key = "xxx_price".as_bytes().to_vec();//
-        AresOcw::add_price(Default::default(), 8888, price_key.clone(), 4, 100);
-        AresOcw::add_price(Default::default(), 7777, price_key.clone(), 4, 100);
+        AresOcw::add_price(Default::default(), 8888, price_key.clone(), 4, Default::default(), 100);
+        AresOcw::add_price(Default::default(), 7777, price_key.clone(), 4, Default::default(), 100);
         // Get save price
         let btc_price_list = AresOcw::ares_prices("xxx_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(8888,Default::default(), 3, 4), (7777,Default::default(), 3, 4)], btc_price_list);
+        assert_eq!(vec![(8888,Default::default(), 3, 4, Default::default()), (7777,Default::default(), 3, 4, Default::default())], btc_price_list);
 
         // if parse version change
         assert_ok!(AresOcw::request_propose(Origin::root(), toVec("xxx_price"), toVec("http://xxx.com"), 8 , 4, 1));
@@ -899,7 +1076,7 @@ fn test_request_propose_submit_impact_on_the_price_pool() {
         assert_eq!(tmp_result[4], (toVec("xxx_price"), toVec("http://xxx.com"), 8, 4, 1));
         // Get old price list, Unaffected
         let btc_price_list = AresOcw::ares_prices("xxx_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(8888,Default::default(), 3, 4), (7777,Default::default(), 3, 4)], btc_price_list);
+        assert_eq!(vec![(8888,Default::default(), 3, 4, Default::default()), (7777,Default::default(), 3, 4, Default::default())], btc_price_list);
 
         // Other price request get in
         assert_ok!(AresOcw::request_propose(Origin::root(), toVec("zzz_price"), toVec("http://zzz.com"), 8 , 4, 1));
@@ -908,7 +1085,7 @@ fn test_request_propose_submit_impact_on_the_price_pool() {
         assert_eq!(tmp_result[5], (toVec("zzz_price"), toVec("http://zzz.com"), 8, 4, 1));
         // Get old price list, Unaffected
         let btc_price_list = AresOcw::ares_prices("xxx_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(8888,Default::default(), 3, 4), (7777,Default::default(), 3, 4)], btc_price_list);
+        assert_eq!(vec![(8888,Default::default(), 3, 4, Default::default()), (7777,Default::default(), 3, 4, Default::default())], btc_price_list);
 
         // Other price request fraction number change.
         assert_ok!(AresOcw::request_propose(Origin::root(), toVec("zzz_price"), toVec("http://zzz.com"), 8 , 5, 1));
@@ -917,7 +1094,7 @@ fn test_request_propose_submit_impact_on_the_price_pool() {
         assert_eq!(tmp_result[5], (toVec("zzz_price"), toVec("http://zzz.com"), 8, 5, 1));
         // Get old price list, Unaffected
         let btc_price_list = AresOcw::ares_prices("xxx_price".as_bytes().to_vec().clone());
-        assert_eq!(vec![(8888,Default::default(), 3, 4), (7777,Default::default(), 3, 4)], btc_price_list);
+        assert_eq!(vec![(8888,Default::default(), 3, 4, Default::default()), (7777,Default::default(), 3, 4, Default::default())], btc_price_list);
 
         // Current price request fraction number change. (xxx_price)
         assert_ok!(AresOcw::request_propose(Origin::root(), toVec("xxx_price"), toVec("http://xxx.com"), 2 ,5 ,1));
@@ -1021,6 +1198,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
     crate::GenesisConfig::<Test>{
         _phantom: Default::default(),
+        price_pool_depth: 3u32,
         price_requests: vec![
             (toVec("btc_price"), toVec("btcusdt"), 2u32, 4u32, 1u8),
             (toVec("eth_price"), toVec("ethusdt"), 2u32, 4u32, 2u8),
