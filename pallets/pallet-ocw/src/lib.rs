@@ -189,7 +189,7 @@ pub mod pallet {
                 }
             }
 
-            // TODO:: develop Offchain request loading.
+            // // TODO:: develop Offchain request loading.
             // Self::fetch_local_price_request_info();
 
             // TODO:: for debug info
@@ -491,6 +491,7 @@ pub mod pallet {
               u64: From<<T as frame_system::Config>::BlockNumber>
     {
         pub _phantom: sp_std::marker::PhantomData<T>,
+        pub request_base: Vec<u8>,
         pub price_pool_depth: u32,
         pub price_requests: Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval )>,
     }
@@ -503,6 +504,7 @@ pub mod pallet {
         fn default() -> Self {
             GenesisConfig {
                 _phantom: Default::default(),
+                request_base: Vec::new(),
                 price_pool_depth: 10u32,
                 price_requests: Vec::new(),
             }
@@ -521,6 +523,11 @@ pub mod pallet {
             if self.price_pool_depth > 0 {
                 PricePoolDepth::<T>::put(&self.price_pool_depth);
             }
+            // if self.request_base.len() > 0 {
+            //     // storage write
+            //     let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
+            //     storage_request_base.set(&self.request_base);
+            // }
         }
     }
 
@@ -711,40 +718,91 @@ impl<T: Config> Pallet<T>
     }
 
     // Get request domain, include TCP protocol, example: http://www.xxxx.com
-    fn get_local_storage_request_domain() -> &'static str {
-        "http://141.164.58.241:5566"
+    fn get_local_storage_request_domain() -> Vec<u8> {
+        let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
+
+        if let Some(request_base) = storage_request_base
+            .get::<Vec<u8>>()
+            .unwrap_or(Some(Vec::new()))
+        {
+
+            if let Ok(result_base_str) = sp_std::str::from_utf8(&request_base) {
+                log::info!("Ares local request base : {:?} .", &result_base_str);
+            }
+
+            return request_base;
+            // if let Some(result_base_str) = sp_std::str::from_utf8(&request_base).map_err(|_| {
+            //     log::warn!("Error:: Extracting storage format, please reset : [are-ocw::price_request_domain]");
+            // }).ok() {
+            //     log::info!("Ares local request base : {:?} .", &request_base_str);
+            //     result_base_str = request_base_str;
+            // }
+
+            // request_base_copy = request_base.clone();
+            // result_base_str = match sp_std::str::from_utf8(&request_base_copy) {
+            //     Ok(result_base_str) => {
+            //         result_base_str
+            //     }
+            //     Err(_) => {
+            //         log::warn!("Error:: Extracting storage format, please reset : [are-ocw::price_request_domain]");
+            //         ""
+            //     }
+            // }
+
+        } else {
+            log::warn!("Not found request base url.");
+        }
+        // log::info!("Ares local request base : {:?} .", &result_base_str);
+        Vec::new()
     }
 
     fn make_local_storage_request_uri_by_str(sub_path: &str) -> Vec<u8> {
         Self::make_local_storage_request_uri_by_vec_u8(sub_path.as_bytes().to_vec())
     }
     fn make_local_storage_request_uri_by_vec_u8(sub_path: Vec<u8>) -> Vec<u8> {
-        let domain = Self::get_local_storage_request_domain().as_bytes().to_vec();
+        let domain = Self::get_local_storage_request_domain(); //.as_bytes().to_vec();
         [domain, sub_path].concat()
     }
 
     //
-    fn fetch_local_price_request_info() -> Result<(), Error<T>> {
-        let mut make_price_request_pool = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL);
-        if let Some(local_request_info) = make_price_request_pool
-            .get::<Vec<u8>>()
-            .unwrap_or(Some(Vec::new())) {
-            log::info!("Ares local price request: Data detected, try to parse.");
-            if let Some(price_json_str) = sp_std::str::from_utf8(&local_request_info).map_err(|_| {
-                log::warn!("Error:: Extracting storage format, No UTF8.");
-            }).ok() {
-                log::info!("Ares local price request: json data {:?}.", &price_json_str);
-                // to update local price storage.
-                Self::update_local_price_storage(price_json_str);
-            }
-            // Clear data.
-            make_price_request_pool.clear()
-        }else{
-            // make_price_request_pool.set(&"{\"name\":\"linhai\"}".as_bytes().to_vec()) ;
-            log::info!(" Ares local price request: Waiting to insert data.");
-        }
-        Ok(())
-    }
+    // fn fetch_local_price_request_info() -> Result<(), Error<T>> {
+    //
+    //     // let mut make_price_request_pool = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL);
+    //     // if let Some(local_request_info) = make_price_request_pool
+    //     //     .get::<Vec<u8>>()
+    //     //     .unwrap_or(Some(Vec::new())) {
+    //     //     log::info!("Ares local price request A: Data detected, try to parse.");
+    //     //     if let Some(price_json_str) = sp_std::str::from_utf8(&local_request_info).map_err(|_| {
+    //     //         log::warn!("Error:: Extracting storage format, No UTF8.");
+    //     //     }).ok() {
+    //     //         log::info!("Ares local price request: json data {:?}.", &price_json_str);
+    //     //         // to update local price storage.
+    //     //         // Self::update_local_price_storage(price_json_str);
+    //     //     }
+    //     //     // Clear data.
+    //     //     // make_price_request_pool.clear()
+    //     // }else{
+    //     //     // make_price_request_pool.set(&"{\"name\":\"linhai\"}".as_bytes().to_vec()) ;
+    //     //     log::info!(" Ares local price request: Waiting to insert data.");
+    //     // }
+    //
+    //     let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
+    //     if let Some(request_base) = storage_request_base
+    //         .get::<Vec<u8>>()
+    //         .unwrap_or(Some(Vec::new()))
+    //     {
+    //         log::info!("Ares local request base B: Data detected, try to parse.");
+    //         if let Some(request_base_str) = sp_std::str::from_utf8(&request_base).map_err(|_| {
+    //             log::warn!("Error:: Extracting storage format, No UTF8.");
+    //         }).ok() {
+    //             log::info!("Ares local request base : json data {:?}.", &request_base_str);
+    //         }
+    //     } else {
+    //         log::warn!("Not found request base url.");
+    //     }
+    //
+    //     Ok(())
+    // }
 
     fn get_local_storage_price_request_list() -> (StorageValueRef<'static>, Vec<LocalPriceRequestStorage>) {
         let price_request_local_storage = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_LIST);

@@ -338,6 +338,7 @@ pub fn testnet_genesis(
         },
         ocw_module: OCWModuleConfig {
             _phantom: Default::default(),
+            request_base: Vec::new(),
             price_pool_depth: 3u32,
             price_requests: vec![
                 // price_key, request_uri, parse_version, fraction_num, request interval
@@ -454,7 +455,7 @@ pub(crate) mod tests {
             integration_test_config_with_two_authorities(),
             |config| {
                 let NewFullBase { task_manager, client, network, transaction_pool, .. } =
-                    new_full_base(config, |_, _| ())?;
+                    new_full_base(config, "http://141.164.58.241:5566", |_, _| ())?;
                 Ok(sc_service_test::TestNetComponents::new(
                     task_manager,
                     client,

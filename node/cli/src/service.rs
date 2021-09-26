@@ -31,6 +31,8 @@ use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandler
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
+use frame_support::pallet_prelude::Encode;
+use frame_support::sp_std;
 
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
 type FullBackend = sc_service::TFullBackend<Block>;
@@ -208,6 +210,7 @@ pub struct NewFullBase {
 /// Creates a full service from the configuration.
 pub fn new_full_base(
 	mut config: Configuration,
+	request_base: Vec<u8>,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
 		&sc_consensus_babe::BabeLink<Block>,
@@ -282,17 +285,19 @@ pub fn new_full_base(
 		telemetry: telemetry.as_mut(),
 	})?;
 
+	let request_base_str = sp_std::str::from_utf8(&request_base).unwrap();
+	println!("debug_str ======= {:?}", request_base_str );
+	let store_request_u8 = request_base_str.encode();
+	let store_request_hex = sp_core::hexdisplay::HexDisplay::from(&store_request_u8);
 
-	// let key = "0x6172652d6f63773a3a6d616b655f70726963655f726571756573745f706f6f6c";
-	// let body = "0xc1017b2270726963655f6b6579223a226274635f7072696365222c22726571756573745f75726c223a22687474703a2f2f3134312e3136342e35382e3234313a353536362f6170692f676574506172747950726963652f62746375736474222c2270617273655f76657273696f6e223a317d";
-	// // let para
-	// let body = "{\"id\":1, \"jsonrpc\":\"2.0\", \"method\": \"offchain_localStorageSet\", \"params\":[\"PERSISTENT\", \"0x6172652d6f63773a3a6d616b655f70726963655f726571756573745f706f6f6c\", \"0xc1017b2270726963655f6b6579223a226274635f7072696365222c22726571756573745f75726c223a22687474703a2f2f3134312e3136342e35382e3234313a353536362f6170692f676574506172747950726963652f62746375736474222c2270617273655f76657273696f6e223a317d\"]}";
-	let body = "{\"id\":1, \"jsonrpc\":\"2.0\", \"method\": \"offchain_localStorageSet\", \"params\":[\"PERSISTENT\", \"0x6172652d6f63773a3a6d616b655f70726963655f726571756573745f706f6f6c\", \"0xc1017b2270726963655f6b6579223a226274635f7072696365222c22726571756573745f75726c223a22687474703a2f2f3134312e3136342e35382e3234313a353536362f6170692f676574506172747950726963652f62746375736474222c2270617273655f76657273696f6e223a317d\"]}";
-	// rpc_handlers.io_handler().handle_request_sync(body, sc_rpc::Metadata::default());
-	// println!("Ares rpc handler input : {:?}", body);
-	// assert_eq!(_rpc_handlers.io_handler().handle_request_sync(body, sc_rpc::Metadata::default()), Some(r#"{"jsonrpc":"2.0","result":true,"id":1}"#.into()));
+	let body = format!("{{\"id\":1, \"jsonrpc\":\"2.0\", \"method\": \"offchain_localStorageSet\", \"params\":[\"PERSISTENT\", \"0x6172652d6f63773a3a70726963655f726571756573745f646f6d61696e\", \"0x{}\"]}}", store_request_hex);
 
-	_rpc_handlers.io_handler().handle_request_sync(body, sc_rpc::Metadata::default());
+	println!(" OFFCHAIN request base : = {:?}", &body);
+
+	_rpc_handlers.io_handler().handle_request_sync(&body, sc_rpc::Metadata::default());
+
+	// ---------
+
 
 	let (block_import, grandpa_link, babe_link) = import_setup;
 
@@ -427,8 +432,8 @@ pub fn new_full_base(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
-	new_full_base(config, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)
+pub fn new_full(config: Configuration, request_base: Vec<u8>) -> Result<TaskManager, ServiceError> {
+	new_full_base(config, request_base, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)
 }
 
 pub fn new_light_base(
@@ -661,6 +666,7 @@ mod tests {
 				let NewFullBase { task_manager, client, network, transaction_pool, .. } =
 					new_full_base(
 						config,
+						"http://141.164.58.241:5566",
 						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
@@ -839,7 +845,7 @@ mod tests {
 			crate::chain_spec::tests::integration_test_config_with_two_authorities(),
 			|config| {
 				let NewFullBase { task_manager, client, network, transaction_pool, .. } =
-					new_full_base(config, |_, _| ())?;
+					new_full_base(config, "http://141.164.58.241:5566", |_, _| ())?;
 				Ok(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,

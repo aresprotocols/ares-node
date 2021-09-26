@@ -28,6 +28,9 @@ pub struct Cli {
 	#[allow(missing_docs)]
 	#[structopt(flatten)]
 	pub run: RunCmd,
+
+	#[structopt(long = "request-base")]
+	pub request_base: Option<String>,
 }
 
 /// Possible subcommands of the main binary.
