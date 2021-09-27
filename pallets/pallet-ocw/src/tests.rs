@@ -349,9 +349,9 @@ fn test_calculation_average_price() {
 //     t.register_extension(OffchainWorkerExt::new(offchain));
 //
 //     t.execute_with(|| {
-//         assert_eq!(AresOcw::get_local_storage_request_domain(), "http://141.164.58.241:5566".as_bytes().to_vec());
-//         assert_eq!(AresOcw::make_local_storage_request_uri_by_str("/get/price1"), "http://141.164.58.241:5566/get/price1".as_bytes().to_vec());
-//         assert_eq!(AresOcw::make_local_storage_request_uri_by_vec_u8("/get/price2".as_bytes().to_vec()), "http://141.164.58.241:5566/get/price2".as_bytes().to_vec());
+//         assert_eq!(AresOcw::get_local_storage_request_domain(), "http://127.0.0.1:5566".as_bytes().to_vec());
+//         assert_eq!(AresOcw::make_local_storage_request_uri_by_str("/get/price1"), "http://127.0.0.1:5566/get/price1".as_bytes().to_vec());
+//         assert_eq!(AresOcw::make_local_storage_request_uri_by_vec_u8("/get/price2".as_bytes().to_vec()), "http://127.0.0.1:5566/get/price2".as_bytes().to_vec());
 //     });
 // }
 
@@ -748,14 +748,14 @@ fn should_make_http_call_and_parse_ares_result() {
 
     state.write().expect_request(testing::PendingRequest {
         method: "GET".into(),
-        uri: "http://141.164.58.241:5566/api/getPartyPrice/btcusdt".into(),
+        uri: "http://127.0.0.1:5566/api/getPartyPrice/btcusdt".into(),
         response: Some(json_response),
         sent: true,
         ..Default::default()
     });
 
     t.execute_with(|| {
-        let price = AresOcw::fetch_price_body_with_http(Vec::new(), "http://141.164.58.241:5566/api/getPartyPrice/btcusdt", 1u32, 2).unwrap();
+        let price = AresOcw::fetch_price_body_with_http(Vec::new(), "http://127.0.0.1:5566/api/getPartyPrice/btcusdt", 1u32, 2).unwrap();
         assert_eq!(price, 5026137);
     });
 }
@@ -859,21 +859,25 @@ fn test_make_bulk_price_format_data () {
 
 #[test]
 fn make_bulk_price_request_url () {
-    let mut expect_format = Vec::new();
-    expect_format.push(("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 4));
-    expect_format.push(("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 4));
 
-    let bulk_request = AresOcw::make_bulk_price_request_url(expect_format);
-    assert_eq!("http://141.164.58.241:5566/api/getBulkPrices?symbol=btcusdt_ethusdt".as_bytes().to_vec(), bulk_request);
+    let mut t = new_test_ext();
+    t.execute_with(|| {
+        let mut expect_format = Vec::new();
+        expect_format.push(("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 4));
+        expect_format.push(("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 4));
 
-    let mut expect_format = Vec::new();
-    expect_format.push(("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 4));
-    expect_format.push(("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 4));
-    expect_format.push(("btc_price".as_bytes().to_vec(), "dotusdt".as_bytes().to_vec(), 4));
-    expect_format.push(("eth_price".as_bytes().to_vec(), "xrpusdt".as_bytes().to_vec(), 4));
+        let bulk_request = AresOcw::make_bulk_price_request_url(expect_format);
+        assert_eq!("http://127.0.0.1:5566/api/getBulkPrices?symbol=btcusdt_ethusdt".as_bytes().to_vec(), bulk_request);
 
-    let bulk_request = AresOcw::make_bulk_price_request_url(expect_format);
-    assert_eq!("http://141.164.58.241:5566/api/getBulkPrices?symbol=btcusdt_ethusdt_dotusdt_xrpusdt".as_bytes().to_vec(), bulk_request);
+        let mut expect_format = Vec::new();
+        expect_format.push(("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 4));
+        expect_format.push(("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 4));
+        expect_format.push(("btc_price".as_bytes().to_vec(), "dotusdt".as_bytes().to_vec(), 4));
+        expect_format.push(("eth_price".as_bytes().to_vec(), "xrpusdt".as_bytes().to_vec(), 4));
+
+        let bulk_request = AresOcw::make_bulk_price_request_url(expect_format);
+        assert_eq!("http://127.0.0.1:5566/api/getBulkPrices?symbol=btcusdt_ethusdt_dotusdt_xrpusdt".as_bytes().to_vec(), bulk_request);
+    });
 }
 
 #[test]
@@ -904,8 +908,8 @@ fn save_fetch_ares_price_and_send_payload_signed() {
 
     let padding_request = testing::PendingRequest {
         method: "GET".into(),
-        // uri: "http://141.164.58.241:5566/api/getBulkPrices?symbol=btcusdt_ethusdt_dotusdt_xrpusdt".into(),
-        uri: "http://141.164.58.241:5566/api/getBulkPrices?symbol=btcusdt".into(),
+        // uri: "http://127.0.0.1:5566/api/getBulkPrices?symbol=btcusdt_ethusdt_dotusdt_xrpusdt".into(),
+        uri: "http://127.0.0.1:5566/api/getBulkPrices?symbol=btcusdt".into(),
         response: Some(get_are_json_of_bulk().as_bytes().to_vec()),
         sent: true,
         ..Default::default()
@@ -958,7 +962,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
 
     // offchain_state.write().expect_request(testing::PendingRequest {
     //     method: "GET".into(),
-    //     uri: "http://141.164.58.241:5566/api/getPartyPrice/btcusdt".into(),
+    //     uri: "http://127.0.0.1:5566/api/getPartyPrice/btcusdt".into(),
     //     response: Some(get_are_json_of_btc().as_bytes().to_vec()),
     //     sent: true,
     //     ..Default::default()
@@ -966,7 +970,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
     //
     // offchain_state.write().expect_request(testing::PendingRequest {
     //     method: "GET".into(),
-    //     uri: "http://141.164.58.241:5566/api/getPartyPrice/ethusdt".into(),
+    //     uri: "http://127.0.0.1:5566/api/getPartyPrice/ethusdt".into(),
     //     response: Some(get_are_json_of_eth().as_bytes().to_vec()),
     //     sent: true,
     //     ..Default::default()
@@ -974,7 +978,7 @@ fn save_fetch_ares_price_and_send_payload_signed() {
     //
     // offchain_state.write().expect_request(testing::PendingRequest {
     //     method: "GET".into(),
-    //     uri: "http://141.164.58.241:5566/api/getPartyPrice/dotusdt".into(),
+    //     uri: "http://127.0.0.1:5566/api/getPartyPrice/dotusdt".into(),
     //     response: Some(get_are_json_of_dot().as_bytes().to_vec()),
     //     sent: true,
     //     ..Default::default()
@@ -1124,7 +1128,7 @@ fn test_rpc_request () {
     let target_json_v8 =target_json.encode();
     println!("Try title : Vec<u8> encode {:?} ", HexDisplay::from(&target_json_v8));
 
-    let target_json = "http://141.164.58.241:5566";
+    let target_json = "http://127.0.0.1:5566";
     let target_json_v8 =target_json.encode();
     println!("Try body : Vec<u8> encode {:?} ", HexDisplay::from(&target_json_v8));
 
@@ -1140,16 +1144,16 @@ fn test_rpc_request () {
 // #[test]
 // fn test_rebuild_LocalPriceRequestStorage() {
 //
-//     // let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/btcusdt\",\"parse_version\":1}";
+//     // let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"http://127.0.0.1:5566/api/getPartyPrice/btcusdt\",\"parse_version\":1}";
 //     // let target_json = "{\"price_key\":\"btc_price\",\"request_url\":\"\",\"parse_version\":1}";
 //     //
-//     // // let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/ethusdt\",\"parse_version\":1}";
+//     // // let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"http://127.0.0.1:5566/api/getPartyPrice/ethusdt\",\"parse_version\":1}";
 //     // let target_json = "{\"price_key\":\"eth_price\",\"request_url\":\"\",\"parse_version\":1}";
 //     //
-//     // let target_json = "{\"price_key\":\"dot_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/dotusdt\",\"parse_version\":1}";
+//     // let target_json = "{\"price_key\":\"dot_price\",\"request_url\":\"http://127.0.0.1:5566/api/getPartyPrice/dotusdt\",\"parse_version\":1}";
 //     // let target_json = "{\"price_key\":\"dot_price\",\"request_url\":\"\",\"parse_version\":1}";
 //     //
-//     // let target_json = "{\"price_key\":\"xrp_price\",\"request_url\":\"http://141.164.58.241:5566/api/getPartyPrice/xrpusdt\",\"parse_version\":1}";
+//     // let target_json = "{\"price_key\":\"xrp_price\",\"request_url\":\"http://127.0.0.1:5566/api/getPartyPrice/xrpusdt\",\"parse_version\":1}";
 //     // let target_json = "{\"price_key\":\"xrp_price\",\"request_url\":\"\",\"parse_version\":1}";
 //
 //     let target_json_v8 =target_json.encode();
@@ -1228,7 +1232,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
     crate::GenesisConfig::<Test>{
         _phantom: Default::default(),
-        request_base: "http://141.164.58.241:5566".as_bytes().to_vec(),
+        request_base: "http://127.0.0.1:5566".as_bytes().to_vec(),
         price_pool_depth: 3u32,
         price_requests: vec![
             (toVec("btc_price"), toVec("btcusdt"), 2u32, 4u32, 1u8),

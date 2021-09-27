@@ -485,6 +485,14 @@ pub mod pallet {
         ValueQuery
     >;
 
+    #[pallet::storage]
+    #[pallet::getter(fn request_base_onchain)]
+    pub(super) type RequestBaseOnchain<T: Config> = StorageValue<
+        _,
+        Vec<u8>,
+        ValueQuery
+    >;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config>
         where AccountId32: From<<T as frame_system::Config>::AccountId>,
@@ -523,11 +531,12 @@ pub mod pallet {
             if self.price_pool_depth > 0 {
                 PricePoolDepth::<T>::put(&self.price_pool_depth);
             }
-            // if self.request_base.len() > 0 {
-            //     // storage write
-            //     let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
-            //     storage_request_base.set(&self.request_base);
-            // }
+            if self.request_base.len() > 0 {
+                RequestBaseOnchain::<T>::put(&self.request_base);
+                // storage write
+                // let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
+                // storage_request_base.set(&self.request_base);
+            }
         }
     }
 
@@ -719,6 +728,12 @@ impl<T: Config> Pallet<T>
 
     // Get request domain, include TCP protocol, example: http://www.xxxx.com
     fn get_local_storage_request_domain() -> Vec<u8> {
+
+        let request_base_onchain = RequestBaseOnchain::<T>::get();
+        if request_base_onchain.len() > 0  {
+            return request_base_onchain;
+        }
+
         let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
 
         if let Some(request_base) = storage_request_base
@@ -729,26 +744,7 @@ impl<T: Config> Pallet<T>
             if let Ok(result_base_str) = sp_std::str::from_utf8(&request_base) {
                 log::info!("Ares local request base : {:?} .", &result_base_str);
             }
-
             return request_base;
-            // if let Some(result_base_str) = sp_std::str::from_utf8(&request_base).map_err(|_| {
-            //     log::warn!("Error:: Extracting storage format, please reset : [are-ocw::price_request_domain]");
-            // }).ok() {
-            //     log::info!("Ares local request base : {:?} .", &request_base_str);
-            //     result_base_str = request_base_str;
-            // }
-
-            // request_base_copy = request_base.clone();
-            // result_base_str = match sp_std::str::from_utf8(&request_base_copy) {
-            //     Ok(result_base_str) => {
-            //         result_base_str
-            //     }
-            //     Err(_) => {
-            //         log::warn!("Error:: Extracting storage format, please reset : [are-ocw::price_request_domain]");
-            //         ""
-            //     }
-            // }
-
         } else {
             log::warn!("Not found request base url.");
         }
@@ -804,6 +800,7 @@ impl<T: Config> Pallet<T>
     //     Ok(())
     // }
 
+    // TODO::Will be delete.
     fn get_local_storage_price_request_list() -> (StorageValueRef<'static>, Vec<LocalPriceRequestStorage>) {
         let price_request_local_storage = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_LIST);
         if let Some(mut price_request_vec) = price_request_local_storage.get::<Vec<LocalPriceRequestStorage>>().unwrap_or(Some(Vec::new())) {
@@ -812,7 +809,7 @@ impl<T: Config> Pallet<T>
         (price_request_local_storage, Vec::new())
     }
 
-    //
+    // TODO::Will be delete.
     fn update_local_price_storage(price_json_str: &str) -> Result<Vec<LocalPriceRequestStorage>, ()> {
 
         if let Some(new_price_request) = Self::extract_local_price_storage(price_json_str) {
