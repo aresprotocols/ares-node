@@ -102,6 +102,7 @@ pub fn config_endowed(
 			_phantom: Default::default(),
 			request_base: Vec::new(),
 			price_pool_depth: 3u32,
+			price_allowable_offset: 10u8,
 			price_requests: vec![
 				("btc_price".as_bytes().to_vec(), "btcusdt".as_bytes().to_vec(), 1u32, 1u32, 10u8),
 				("eth_price".as_bytes().to_vec(), "ethusdt".as_bytes().to_vec(), 1u32, 1u32, 10u8),

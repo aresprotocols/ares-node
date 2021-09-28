@@ -24,7 +24,7 @@ use frame_support::sp_std::str::FromStr;
 mod tests;
 
 /// The keys can be inserted manually via RPC (see `author_insertKey`).
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ares");
+pub const KEY_TYPE: KeyTypeId = sp_application_crypto::key_types::STAKING ; // KeyTypeId(*b"ares");
 pub const LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL: &[u8] = b"are-ocw::make_price_request_pool";
 pub const LOCAL_STORAGE_PRICE_REQUEST_LIST: &[u8] = b"are-ocw::price_request_list";
 pub const LOCAL_STORAGE_PRICE_REQUEST_DOMAIN: &[u8] = b"are-ocw::price_request_domain";
@@ -314,6 +314,14 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::weight(0)]
+        pub fn allowable_offset_propose(origin: OriginFor<T>, offset: u8) -> DispatchResult {
+            T::RequestOrigin::ensure_origin(origin)?;
+            <PriceAllowableOffset<T>>::put(offset);
+            Self::deposit_event(Event::PriceAllowableOffsetUpdate(offset));
+
+            Ok(())
+        }
 
         #[pallet::weight(0)]
         pub fn pool_depth_propose(origin: OriginFor<T>, depth: u32) -> DispatchResult {
@@ -330,11 +338,11 @@ pub mod pallet {
             Self::deposit_event(Event::PricePoolDepthUpdate(depth));
 
             if depth > old_depth {
-                <PricesRequests<T>>::get().into_iter().any(|(price_key,_,_,_,_)|{
-                    // clear average.
-                    <AresAvgPrice<T>>::remove(&price_key);
-                    false
-                }) ;
+                // <PricesRequests<T>>::get().into_iter().any(|(price_key,_,_,_,_)|{
+                //     // clear average.
+                //     <AresAvgPrice<T>>::remove(&price_key);
+                //     false
+                // }) ;
             }else {
                 <PricesRequests<T>>::get().into_iter().any(|(price_key,_,_,_,_)|{
 
@@ -356,7 +364,7 @@ pub mod pallet {
                         <AresPrice<T>>::insert(price_key.clone(), new_price_list);
                     }
                     // need to recalculate the average.
-                    Self::update_avg_price_storage(price_key, depth);
+                    Self::check_and_update_avg_price_storage(price_key, depth);
                     false
                 }) ;
             }
@@ -379,6 +387,8 @@ pub mod pallet {
         UpdatePriceRequest(Vec<u8>, Vec<u8>, u32, FractionLength),
         //
         PricePoolDepthUpdate(u32),
+        //
+        PriceAllowableOffsetUpdate(u8),
     }
 
     #[pallet::validate_unsigned]
@@ -451,6 +461,19 @@ pub mod pallet {
         ValueQuery
     >;
 
+    /// The lookup table for names.
+    #[pallet::storage]
+    #[pallet::getter(fn ares_abnormal_prices)]
+    pub(super) type AresAbnormalPrice<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        Vec<u8>,
+        // price, account, bolcknumber, FractionLength, JsonNumberValue
+        Vec<(u64, T::AccountId, T::BlockNumber, FractionLength, JsonNumberValue)>,
+        // Vec<(u64, T::AccountId)>,
+        ValueQuery
+    >;
+
     #[pallet::storage]
     #[pallet::getter(fn ares_avg_prices)]
     pub(super) type AresAvgPrice<T: Config> = StorageMap<
@@ -468,6 +491,14 @@ pub mod pallet {
     pub(super) type PricePoolDepth<T: Config> = StorageValue<
         _,
         u32,
+        ValueQuery
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn price_allowable_offset)]
+    pub(super) type PriceAllowableOffset<T: Config> = StorageValue<
+        _,
+        u8,
         ValueQuery
     >;
 
@@ -500,6 +531,7 @@ pub mod pallet {
     {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub request_base: Vec<u8>,
+        pub price_allowable_offset: u8,
         pub price_pool_depth: u32,
         pub price_requests: Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval )>,
     }
@@ -513,6 +545,7 @@ pub mod pallet {
             GenesisConfig {
                 _phantom: Default::default(),
                 request_base: Vec::new(),
+                price_allowable_offset: 10u8,
                 price_pool_depth: 10u32,
                 price_requests: Vec::new(),
             }
@@ -537,6 +570,7 @@ pub mod pallet {
                 // let mut storage_request_base = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_DOMAIN);
                 // storage_request_base.set(&self.request_base);
             }
+            PriceAllowableOffset::<T>::put(self.price_allowable_offset );
         }
     }
 
@@ -996,7 +1030,7 @@ impl<T: Config> Pallet<T>
 
         // request and return http body.
         if "" == request_url {
-            log::warn!("ERROR:: Cannot match area pricer url. return empty. ");
+            log::info!("Waiting for price request ... ");
             return Ok(Vec::new());
             // return Err(http::Error::Unknown);
         }
@@ -1234,8 +1268,8 @@ impl<T: Config> Pallet<T>
 
     //
     fn add_price(who: T::AccountId, price:u64, price_key: Vec<u8>, fraction_length: FractionLength, json_number_value: JsonNumberValue, max_len:u32 ) {
+        // println!("add_price == {:?}", price);
         let key_str = price_key;
-
         let current_block = <system::Pallet<T>>::block_number();
         // 1. Check key exists
         if <AresPrice<T>>::contains_key(key_str.clone()) {
@@ -1314,7 +1348,13 @@ impl<T: Config> Pallet<T>
         //     <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
         // }
 
-        Self::update_avg_price_storage(key_str.clone(), max_len);
+        // let ares_price_list_len = <AresPrice<T>>::get(key_str.clone()).len();
+        // if ares_price_list_len >= max_len as usize && ares_price_list_len > 0 {
+        //     println!("update_avg_price_storage price count = {:?}", ares_price_list_len);
+        //     Self::update_avg_price_storage(key_str.clone(), max_len);
+        // }
+
+        Self::check_and_update_avg_price_storage(key_str.clone(), max_len);
 
         // Check if the price request exists, if not, clear storage data.
         let price_request_list = <PricesRequests<T>>::get();
@@ -1326,17 +1366,84 @@ impl<T: Config> Pallet<T>
         }
     }
 
+    fn check_and_update_avg_price_storage(key_str: Vec<u8>, max_len: u32) {
+        let ares_price_list_len = <AresPrice<T>>::get(key_str.clone()).len();
+        if ares_price_list_len >= max_len as usize && ares_price_list_len > 0 {
+            // println!("update_avg_price_storage price count = {:?}", ares_price_list_len);
+            Self::update_avg_price_storage(key_str.clone(), max_len);
+        }
+    }
+
+    // TODO:: remove max_len ?
     fn update_avg_price_storage(key_str: Vec<u8>, max_len: u32) {
         // Check price pool deep reaches the maximum value, and if so, calculated the average.
-        if  <AresPrice<T>>::get(key_str.clone()).len() >= max_len as usize {
+        // if  <AresPrice<T>>::get(key_str.clone()).len() >= max_len as usize {
+
             let (average,fraction_length) = Self::average_price(key_str.clone(), T::CalculationKind::get())
                 .expect("The average is not empty.");
             log::info!("Calculate current average price average price is: ({},{}) , {:?}", average, fraction_length, &key_str);
-            // Update avg price
-            <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
-        }else{
-            <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
-        }
+
+            let mut price_list_of_pool = <AresPrice<T>>::get(key_str.clone());
+            // Abnormal price index list
+            let mut abnormal_price_index_list = Vec::new();
+            // Pick abnormal price.
+            if 0 < price_list_of_pool.len() {
+                for (index, check_price) in price_list_of_pool.iter().enumerate() {
+
+                    let offset_percent = match check_price.0 {
+                        x if &x >  &average => {
+                            // println!("A:: &x >  &average  = {:?} > {:?}", &x, &average);
+                            // println!("&x /  &average  = {:?} / {:?}", ((x - average)*100), (average ));
+                            ((x - average)*100) / average
+                        },
+                        x if &x <  &average => {
+                            // println!("B:: &x <  &average  = {:?} > {:?}", &x, &average);
+                            // println!("&x /  &average  = {:?} / {:?}", ((average - x)*100), (average ));
+                            ((average - x)*100) / average
+                        },
+                        _ => { 0 }
+                    };
+                    // println!("offset_percent = {:?}", &offset_percent);
+                    if offset_percent > <PriceAllowableOffset<T>>::get() as u64 {
+                        // Set price to abnormal list and pick out check_price
+                        <AresAbnormalPrice<T>>::append(key_str.clone(), check_price);
+                        // abnormal_price_index_list
+                        abnormal_price_index_list.push(index);
+                    }
+                }
+
+                // println!("All abnormal_price_index_list = {:?}", abnormal_price_index_list);
+
+                let mut remove_count = 0;
+                // has abnormal price.
+                if abnormal_price_index_list.len() > 0 {
+                    // pick out abnormal
+                    abnormal_price_index_list.iter().any(|remove_index| {
+                        price_list_of_pool.remove((*remove_index - remove_count));
+                        remove_count+=1;
+                        false
+                    });
+                    // println!("Update price_list = {:?}", &price_list_of_pool);
+                    // reset price pool
+                    <AresPrice<T>>::insert(key_str.clone(), price_list_of_pool);
+                    return Self::update_avg_price_storage(key_str.clone(), max_len.clone());
+                }
+
+                // Update avg price
+                <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
+                // Clear price pool.
+                <AresPrice<T>>::remove(key_str.clone());
+            }
+
+            // // Update avg price
+            // <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
+            // // Clear price pool.
+            // <AresPrice<T>>::remove(key_str.clone());
+        // }
+
+        // else{ Keep old average price.
+        //     <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
+        // }
     }
 
     //
@@ -1348,6 +1455,7 @@ impl<T: Config> Pallet<T>
     /// Calculate current average price. // fraction_length: FractionLength
     fn average_price(price_key_str: Vec<u8>, kind: u8 ) -> Option<(u64, FractionLength)> {
         let prices_info = <AresPrice<T>>::get(price_key_str.clone());
+        // println!("average_price AAAA = {:?} ", &prices_info);
         let mut fraction_length_of_pool : FractionLength  = 0;
         // Check and get fraction_length.
         prices_info.clone().into_iter().any(|(_,_,_,tmp_fraction,_)| {
@@ -1361,16 +1469,19 @@ impl<T: Config> Pallet<T>
         }) ;
 
         let prices: Vec<u64> = prices_info.into_iter().map(|(price,_,_,_, _)| price ).collect();
-
+        // println!("average_price BBBB = {:?} ", &prices);
         if prices.is_empty() {
             return None;
         }
+
         match Self::calculation_average_price(prices, kind) {
             Some(price_value) => {
                 return Some((price_value, fraction_length_of_pool));
             },
             _ => {}
         }
+
+
         None
     }
 

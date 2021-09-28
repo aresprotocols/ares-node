@@ -9,7 +9,7 @@ parameter_types! {
     // pub const MaxCountOfPerRequest: u8 = 2;
 	// pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
-    pub const NeedVerifierCheck: bool = false;
+    pub const NeedVerifierCheck: bool = true;
     pub const UseOnChainPriceRequest: bool = true;
     pub const FractionLengthNum: u32 = 2;
     pub const CalculationKind: u8 = 1;

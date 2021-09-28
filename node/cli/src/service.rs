@@ -286,7 +286,7 @@ pub fn new_full_base(
 	})?;
 
 	let request_base_str = sp_std::str::from_utf8(&request_base).unwrap();
-	println!("debug_str ======= {:?}", request_base_str );
+	// println!("debug_str ======= {:?}", request_base_str );
 	let store_request_u8 = request_base_str.encode();
 	let store_request_hex = sp_core::hexdisplay::HexDisplay::from(&store_request_u8);
 
