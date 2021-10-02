@@ -2,7 +2,7 @@
 name = "pallet-ocw"
 version = "3.0.0"
 authors = ["Ares Technologies <linhai@cancanyou.com>"]
-edition = "2021"
+edition = "2018"
 license = "Unlicense"
 homepage = "https://github.com/aresprotocols"
 repository = "https://github.com/aresprotocols/ares-node"
