@@ -1,12 +1,12 @@
 [package]
 name = "pallet-ocw"
 version = "3.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2018"
+authors = ["Ares Technologies <linhai@cancanyou.com>"]
+edition = "2021"
 license = "Unlicense"
-homepage = "https://substrate.dev"
-repository = "https://github.com/paritytech/substrate/"
-description = "FRAME example pallet for offchain worker"
+homepage = "https://github.com/aresprotocols"
+repository = "https://github.com/aresprotocols/ares-node"
+description = "Ares price submit."
 readme = "README.md"
 
 [package.metadata.docs.rs]

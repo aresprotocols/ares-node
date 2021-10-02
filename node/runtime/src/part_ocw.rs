@@ -24,6 +24,7 @@ impl pallet_ocw::Config for Runtime {
     type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
+
     // TODO:: will be remove
     // type ValidatorSet = Historical;
 

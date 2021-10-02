@@ -241,7 +241,6 @@ pub mod pallet {
                 }
             }
 
-
             // // TODO:: develop Offchain request loading.
             // Self::fetch_local_price_request_info();
 
@@ -694,9 +693,6 @@ impl Default for JsonNumberValue {
     }
 }
 
-
-
-/// Payload used by this example crate to hold price
 /// data required to submit a transaction.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct PricePayload<Public, BlockNumber> {
@@ -782,22 +778,6 @@ impl<T: Config> Pallet<T>
             return result;
         }
 
-        // read local storage
-        // TODO:: This version will be delete
-        // if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
-        //     let result:Vec<(Vec<u8>, Vec<u8>, u32, FractionLength, RequestInterval)> = price_request_vec.into_iter().map(|local_price|{
-        //         (
-        //             local_price.price_key,
-        //             // sp_std::str::from_utf8(&request_url).unwrap().clone(),
-        //             Self::make_local_storage_request_uri_by_vec_u8(local_price.request_url),
-        //             local_price.parse_version,
-        //             1u32,
-        //             1u32,
-        //         )
-        //     }).collect() ;
-        //     return result;
-        // }
-
         Vec::new()
     }
 
@@ -818,20 +798,6 @@ impl<T: Config> Pallet<T>
             return result;
         }
 
-        // TODO::Will be delete.
-        // // read local storage
-        // if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
-        //     let result:Vec<(Vec<u8>, Vec<u8>, u32, u32)> = price_request_vec.into_iter().map(|local_price|{
-        //         (
-        //             local_price.price_key,
-        //             // sp_std::str::from_utf8(&request_url).unwrap().clone(),
-        //             local_price.request_url,
-        //             local_price.parse_version,
-        //             1u32,
-        //         )
-        //     }).collect() ;
-        //     return result;
-        // }
         Vec::new()
     }
 
@@ -873,10 +839,6 @@ impl<T: Config> Pallet<T>
         let digest = <frame_system::Pallet<T>>::digest();
         let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
         <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests)
-        // let author = if let Some(author) = <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests) {
-        //     Some(author)
-        // };
-        // None
     }
     //
     // fn fetch_local_price_request_info() -> Result<(), Error<T>> {
@@ -918,48 +880,48 @@ impl<T: Config> Pallet<T>
     //     Ok(())
     // }
 
-    // TODO::Will be delete.
-    fn get_local_storage_price_request_list() -> (StorageValueRef<'static>, Vec<LocalPriceRequestStorage>) {
-        let price_request_local_storage = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_LIST);
-        if let Some(mut price_request_vec) = price_request_local_storage.get::<Vec<LocalPriceRequestStorage>>().unwrap_or(Some(Vec::new())) {
-            return (price_request_local_storage, price_request_vec);
-        }
-        (price_request_local_storage, Vec::new())
-    }
+    // // TODO::Will be delete.
+    // fn get_local_storage_price_request_list() -> (StorageValueRef<'static>, Vec<LocalPriceRequestStorage>) {
+    //     let price_request_local_storage = StorageValueRef::persistent(LOCAL_STORAGE_PRICE_REQUEST_LIST);
+    //     if let Some(mut price_request_vec) = price_request_local_storage.get::<Vec<LocalPriceRequestStorage>>().unwrap_or(Some(Vec::new())) {
+    //         return (price_request_local_storage, price_request_vec);
+    //     }
+    //     (price_request_local_storage, Vec::new())
+    // }
 
-    // TODO::Will be delete.
-    fn update_local_price_storage(price_json_str: &str) -> Result<Vec<LocalPriceRequestStorage>, ()> {
-
-        if let Some(new_price_request) = Self::extract_local_price_storage(price_json_str) {
-
-            if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
-                if price_request_vec.len() > 0 {
-                    log::info!("Are local price request: OLD VALUE {:?}", &price_request_vec);
-                    for (index, local_price_request) in price_request_vec.clone().into_iter().enumerate() {
-                        if &new_price_request.price_key == &local_price_request.price_key {
-                            // kick out old value.
-                            price_request_vec.remove(index);
-                        }
-                    }
-                    // If not remove.
-                    if new_price_request.request_url != "".as_bytes().to_vec() {
-                        // Insert new request to storage
-                        price_request_vec.push(new_price_request);
-                    }
-                    // Save new request list.
-                    price_request_local_storage.set(&price_request_vec);
-                    return Ok(price_request_vec);
-                }else{
-                    // create local store
-                    let mut new_storage: Vec<LocalPriceRequestStorage> = Vec::new();
-                    new_storage.push(new_price_request);
-                    price_request_local_storage.set(&new_storage);
-                    return Ok(new_storage);
-                }
-            }
-        }
-        Err(())
-    }
+    // // TODO::Will be delete.
+    // fn update_local_price_storage(price_json_str: &str) -> Result<Vec<LocalPriceRequestStorage>, ()> {
+    //
+    //     if let Some(new_price_request) = Self::extract_local_price_storage(price_json_str) {
+    //
+    //         if let (price_request_local_storage, mut price_request_vec) = Self::get_local_storage_price_request_list() {
+    //             if price_request_vec.len() > 0 {
+    //                 log::info!("Are local price request: OLD VALUE {:?}", &price_request_vec);
+    //                 for (index, local_price_request) in price_request_vec.clone().into_iter().enumerate() {
+    //                     if &new_price_request.price_key == &local_price_request.price_key {
+    //                         // kick out old value.
+    //                         price_request_vec.remove(index);
+    //                     }
+    //                 }
+    //                 // If not remove.
+    //                 if new_price_request.request_url != "".as_bytes().to_vec() {
+    //                     // Insert new request to storage
+    //                     price_request_vec.push(new_price_request);
+    //                 }
+    //                 // Save new request list.
+    //                 price_request_local_storage.set(&price_request_vec);
+    //                 return Ok(price_request_vec);
+    //             }else{
+    //                 // create local store
+    //                 let mut new_storage: Vec<LocalPriceRequestStorage> = Vec::new();
+    //                 new_storage.push(new_price_request);
+    //                 price_request_local_storage.set(&new_storage);
+    //                 return Ok(new_storage);
+    //             }
+    //         }
+    //     }
+    //     Err(())
+    // }
 
     // extract LocalPriceRequestStorage struct from json str
     fn extract_local_price_storage(price_json_str: &str) -> Option<LocalPriceRequestStorage> {
@@ -980,28 +942,28 @@ impl<T: Config> Pallet<T>
     }
 
     // Get the delimited array according to the max request num.
-    // TODO:: out of date, will be del.
-    fn get_delimited_price_source_list(source_list: Vec<(Vec<u8>, Vec<u8>, u32, u32)>, round_number: u64, max_request_count: u8) -> Vec<( Vec<u8>, Vec<u8>, u32, FractionLength)> {
-        let vec_count = source_list.len() as u8 ;
-
-        let remainder_split_num = Self::get_number_of_cycles(vec_count, max_request_count);
-        if remainder_split_num <= 0 {
-            return Vec::new();
-        }
-
-        let remainder : u64 =  (round_number % remainder_split_num as u64).into();
-        let begin_index = remainder * max_request_count as u64;
-        let mut end_index = begin_index + max_request_count as u64;
-        if end_index > source_list.len() as u64 {
-            end_index = source_list.len() as u64;
-        }
-
-        source_list[begin_index as usize .. end_index as usize].to_vec()
-    }
+    // // TODO:: out of date, will be del.
+    // fn get_delimited_price_source_list(source_list: Vec<(Vec<u8>, Vec<u8>, u32, u32)>, round_number: u64, max_request_count: u8) -> Vec<( Vec<u8>, Vec<u8>, u32, FractionLength)> {
+    //     let vec_count = source_list.len() as u8 ;
+    //
+    //     let remainder_split_num = Self::get_number_of_cycles(vec_count, max_request_count);
+    //     if remainder_split_num <= 0 {
+    //         return Vec::new();
+    //     }
+    //
+    //     let remainder : u64 =  (round_number % remainder_split_num as u64).into();
+    //     let begin_index = remainder * max_request_count as u64;
+    //     let mut end_index = begin_index + max_request_count as u64;
+    //     if end_index > source_list.len() as u64 {
+    //         end_index = source_list.len() as u64;
+    //     }
+    //
+    //     source_list[begin_index as usize .. end_index as usize].to_vec()
+    // }
 
     fn save_fetch_ares_price_and_send_payload_signed(block_number: T::BlockNumber) -> Result<(), &'static str> {
 
-        // TODO:: Test check ! not used
+
         // let price_source_list = Self::get_delimited_price_source_list(Self::get_price_source_list(T::UseOnChainPriceRequest::get()), block_number.into(), max_request_count);
         let mut price_list = Vec::new();
 
@@ -1013,7 +975,6 @@ impl<T: Config> Pallet<T>
         //     }
         // }
 
-        // TODO:: The parse version is now fixed, and there should be a better way to handle it.
         let price_result = Self::fetch_bulk_price_with_http(block_number, 2).ok().unwrap();
         for (price_key, price_option, fraction_length , json_number_value) in price_result {
             if price_option.is_some() {
@@ -1098,9 +1059,7 @@ impl<T: Config> Pallet<T>
                 }
             }
         }
-
         log::info!("Ares will be request list :: {:?}", format.clone());
-
         format
     }
 
@@ -1142,17 +1101,6 @@ impl<T: Config> Pallet<T>
             log::warn!("Error:: Extracting body, No UTF8 body");
             http::Error::Unknown
         })?;
-
-        // TODO:: Not work
-        // match version_num {
-        //     1 => {
-        //         let format_arr = Self::make_bulk_price_format_data();
-        //         return Ok(Self::bulk_parse_price_of_ares(body_str, format_arr));
-        //     }
-        //     _ => {}
-        // }
-        // Err(http::Error::Unknown)
-
         Ok(Self::bulk_parse_price_of_ares(body_str, format_arr))
     }
 
@@ -1209,7 +1157,6 @@ impl<T: Config> Pallet<T>
                 Err(http::Error::Unknown)
             }
         }
-
     }
 
     // handler for bulk_parse_price_of_ares
@@ -1220,7 +1167,6 @@ impl<T: Config> Pallet<T>
         let price_value = match json_val {
             JsonValue::Object(obj) => {
                 // TODO:: need test again.
-
                 let find_result = obj.into_iter().find(|(k, _)| {
                     // let tmp_k = k.iter().copied();
                     k.iter().copied().eq(find_key.chars())
@@ -1519,16 +1465,6 @@ impl<T: Config> Pallet<T>
                 // Clear price pool.
                 <AresPrice<T>>::remove(key_str.clone());
             }
-
-            // // Update avg price
-            // <AresAvgPrice<T>>::insert(key_str.clone(), (average, fraction_length));
-            // // Clear price pool.
-            // <AresPrice<T>>::remove(key_str.clone());
-        // }
-
-        // else{ Keep old average price.
-        //     <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
-        // }
     }
 
     // fn get_block_author() -> Option<<<T as pallet::Config>::ValidatorSet as frame_support::traits::ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId>
@@ -1593,8 +1529,6 @@ impl<T: Config> Pallet<T>
             },
             _ => {}
         }
-
-
         None
     }
 
