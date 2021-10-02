@@ -23,6 +23,8 @@
 #![recursion_limit = "256"]
 
 /// Include part_*
+mod part_staking_extend;
+mod part_member_extend;
 mod part_template;
 mod part_ares;
 mod part_ocw;
@@ -434,6 +436,7 @@ parameter_types! {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+	// type FindAuthor = Babe;
 	type UncleGenerations = UncleGenerations;
 	type FilterUncle = ();
 	type EventHandler = (Staking, ImOnline);
@@ -1178,6 +1181,8 @@ construct_runtime!(
 
 		// TODO:: --- ares
 		TemplateModule: template::{Pallet, Call, Storage, Event<T>},
+		StakingExtend: staking_extend::{Pallet},
+		MemberExtend: member_extend::{Pallet},
 		AresModule: pallet_ares::{Pallet, Call, Storage, Event<T>},
 		OCWModule: pallet_ocw::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>}
 
@@ -1329,6 +1334,7 @@ impl_runtime_apis! {
 			// slot duration and expected target block time, for safely
 			// resisting network delays of maximum two seconds.
 			// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+
 			sp_consensus_babe::BabeGenesisConfiguration {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),

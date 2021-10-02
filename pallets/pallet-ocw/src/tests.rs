@@ -46,7 +46,7 @@ use sp_runtime::{
 
 use sp_core::sr25519::Public as Public;
 // use pallet_session::historical as pallet_session_historical;
-use frame_support::traits::{FindAuthor, VerifySeal};
+use frame_support::traits::{FindAuthor, VerifySeal, Len};
 use pallet_authorship::SealVerify;
 use sp_staking::SessionIndex;
 use sp_runtime::traits::AppVerify;
@@ -55,6 +55,11 @@ use frame_system::{EnsureSignedBy, EnsureRoot};
 use std::convert::TryInto;
 use sp_core::hexdisplay::HexDisplay;
 use lite_json::JsonValue::Null;
+use frame_support::sp_runtime::traits::IsMember;
+use crate::sr25519::AuthorityId;
+use sp_application_crypto::Pair;
+use frame_support::sp_std::convert::TryFrom;
+use frame_support::sp_runtime::app_crypto::Ss58Codec;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -91,6 +96,20 @@ impl FindAuthor<Public> for AuthorGiven {
         for (id, data) in digests {
             if id == TEST_ID {
                 return Public::decode(&mut &data[..]).ok();
+            }
+        }
+        None
+    }
+}
+
+pub struct TestFindAuthor;
+impl FindAuthor<AccountId> for TestFindAuthor {
+    fn find_author<'a, I>(digests: I) -> Option<AccountId> where
+        I: 'a + IntoIterator<Item=(ConsensusEngineId, &'a [u8])>
+    {
+        for (id, data) in digests {
+            if id == TEST_ID {
+                Public::decode(&mut &data[..]).ok();
             }
         }
         None
@@ -219,16 +238,28 @@ impl Config for Test {
     type AuthorityId = crypto::OcwAuthId;
     type AuthorityAres = sr25519::AuthorityId;
     type Call = Call;
-    type ValidatorSet = Historical;
+    // type ValidatorSet = Historical;
     type RequestOrigin = frame_system::EnsureRoot<AccountId>;
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
+    type FindAuthor = TestFindAuthor;
     // type PriceVecMaxSize = PriceVecMaxSize;
     // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
     type UseOnChainPriceRequest = UseOnChainPriceRequest;
     type FractionLengthNum = FractionLengthNum;
     type CalculationKind = CalculationKind;
+
+    type ValidatorAuthority= AccountId;
+    type VMember = TestMember;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct TestMember;
+impl IsMember<AccountId> for TestMember {
+    fn is_member(member_id: &AccountId) -> bool {
+        true
+    }
 }
 
 impl pallet_session::historical::Config for Test {
@@ -1127,6 +1158,89 @@ fn test_allowable_offset_propose() {
         assert_ok!(AresOcw::allowable_offset_propose(Origin::root(), 20));
         assert_eq!(AresOcw::price_allowable_offset(), 20);
     });
+}
+
+// mod app {
+//     use sp_application_crypto::{
+//         key_types::AUTHORITY_DISCOVERY,
+//         app_crypto,
+//         sr25519,
+//     };
+//     app_crypto!(sr25519, AUTHORITY_DISCOVERY);
+// }
+// sp_application_crypto::with_pair! {
+// 	/// An authority discovery authority keypair.
+// 	pub type AuthorityPair = app::Pair + sp_application_crypto::Pair;
+// }
+//
+#[test]
+fn test_self ( ) {
+
+    use sp_application_crypto::sr25519;
+    use sp_runtime::MultiSignature;
+    use sp_runtime::MultiSigner;
+
+    // sp_core::sr25519::Pair(schnorrkel::Keypair).;
+
+    // let result = AuthorityPair::verify(signature.into(), signature.into(), test_address.into());
+    // assert!(result, "Result is true.")
+
+    let msg = &b"test-message"[..];
+    let (pair, _) = sr25519::Pair::generate();
+
+    let signature = pair.sign(&msg);
+    assert!(sr25519::Pair::verify(&signature, msg, &pair.public()));
+
+    println!("msg = {:?}", &msg);
+    println!("signature = {:?}", &signature);
+    println!("pair.public() = {:?}", &pair.public());
+    // println!("multi_signer.into_account() = {:?}", &multi_signer.into_account());
+
+
+    let multi_sig = MultiSignature::from(signature); // OK
+    let multi_signer = MultiSigner::from(pair.public());
+    assert!(multi_sig.verify(msg, &multi_signer.into_account()));
+
+    let multi_signer = MultiSigner::from(pair.public());
+    assert!(multi_sig.verify(msg, &multi_signer.into_account()));
+
+    //---------
+
+
+    let test_signature = &hex::decode("2aeaa98e26062cf65161c68c5cb7aa31ca050cb5bdd07abc80a475d2a2eebc7b7a9c9546fbdff971b29419ddd9982bf4148c81a49df550154e1674a6b58bac84").expect("Hex invalid")[..];
+    let signature = Signature::try_from(test_signature);
+    let signature = signature.unwrap();
+    println!(" signature = {:?}", signature);
+    let account_result =  AccountId::from_ss58check("5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty");
+
+    let account_id = account_result.unwrap();
+    println!(" account_id = {:?} ", account_id);
+    let public_id = Public::from_ss58check("5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty");
+    let public_id = public_id.unwrap();
+    println!(" public_id = {:?} ", public_id);
+
+    let multi_sig = MultiSignature::from(signature); // OK
+    let multi_signer = MultiSigner::from(public_id);
+    assert!(multi_sig.verify("This is a text message".as_bytes(), &multi_signer.into_account()));
+
+    // let account_encode =  "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty".encode();
+    // println!(" account = {:?}, {:?}", &account_encode, account_encode.len());
+
+    // let signedMessage_u8 = "This is a text message".as_bytes();
+    // let signature_u8 = &hex::decode("0x2aeaa98e26062cf65161c68c5cb7aa31ca050cb5bdd07abc80a475d2a2eebc7b7a9c9546fbdff971b29419ddd9982bf4148c81a49df550154e1674a6b58bac84");// .as_bytes();
+    //
+    // let test_address_u8 = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty".as_bytes();
+    //
+    // let signature = Signature::try_from(signature_u8);
+    // let signature = signature.unwrap();
+    // println!(" signature = {:?}", signature);
+
+    // let mut a =[0u8; 64];
+    // a[..].copy_from_slice(&signature);
+    // let multi_sig = MultiSignature::from(Signature(a));
+
+    //
+    // let multi_signer = MultiSigner::from(pair.public());
 }
 
 #[test]

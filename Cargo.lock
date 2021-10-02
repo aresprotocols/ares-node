@@ -3716,6 +3716,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
+name = "member-extend"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "lite-json",
+ "log",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4314,6 +4336,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
+ "member-extend",
  "node-primitives 2.0.0",
  "pallet-ares",
  "pallet-assets",
@@ -4378,6 +4401,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "staking-extend",
  "static_assertions",
  "substrate-wasm-builder",
 ]
@@ -4734,6 +4758,22 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-aura"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?tag=monthly-2021-08#4d28ebeb8b027ca0227fe7779c5beb70a7b56467"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "sp-application-crypto",
+ "sp-consensus-aura",
  "sp-runtime",
  "sp-std",
 ]
@@ -5153,6 +5193,7 @@ version = "3.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "hex",
  "lite-json",
  "log",
  "pallet-authorship",
@@ -8974,6 +9015,27 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
+name = "staking-extend"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "lite-json",
+ "log",
+ "pallet-authorship",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "static_assertions"

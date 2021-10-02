@@ -24,7 +24,7 @@ use frame_support::sp_std::str::FromStr;
 mod tests;
 
 /// The keys can be inserted manually via RPC (see `author_insertKey`).
-pub const KEY_TYPE: KeyTypeId = sp_application_crypto::key_types::STAKING ; // KeyTypeId(*b"ares");
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ares"); // sp_application_crypto::key_types::BABE ; //
 pub const LOCAL_STORAGE_PRICE_REQUEST_MAKE_POOL: &[u8] = b"are-ocw::make_price_request_pool";
 pub const LOCAL_STORAGE_PRICE_REQUEST_LIST: &[u8] = b"are-ocw::price_request_list";
 pub const LOCAL_STORAGE_PRICE_REQUEST_DOMAIN: &[u8] = b"are-ocw::price_request_domain";
@@ -104,7 +104,9 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use super::*;
-    use frame_support::sp_runtime::traits::{IdentifyAccount};
+    use frame_support::sp_runtime::traits::{IdentifyAccount, IsMember};
+    use sp_core::crypto::UncheckedFrom;
+    use frame_support::sp_std::convert::TryInto;
 
     #[pallet::error]
     pub enum Error<T> {
@@ -128,11 +130,18 @@ pub mod pallet {
         type Call: From<Call<Self>>;
 
         /// ocw store key pair.
-        type AuthorityAres: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize;
+        type AuthorityAres: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize + UncheckedFrom<[u8; 32]>;
 
         /// A type for retrieving the validators supposed to be online in a session.
-        type ValidatorSet: ValidatorSet<Self::AccountId>;
+        // type ValidatorSet: ValidatorSet<Self::AccountId> ;
 
+        type FindAuthor: FindAuthor<Self::AccountId>;
+
+        // type MemberAuthority: Member + Parameter + RuntimeAppPublic + Default + Ord + MaybeSerializeDeserialize + UncheckedFrom<[u8; 32]>;
+        // type Member: IsMember<Self::MemberAuthority>;
+
+        type ValidatorAuthority : IsType<<Self as frame_system::Config>::AccountId> + Member;
+        type VMember : IsMember<Self::ValidatorAuthority>;
 
         /// This ensures that we only accept unsigned transactions once, every `UnsignedInterval` blocks.
         // #[pallet::constant]
@@ -181,13 +190,57 @@ pub mod pallet {
     {
         /// You can use `Local Storage` API to coordinate runs of the worker.
         fn offchain_worker(block_number: T::BlockNumber) {
-            if Self::are_block_author_and_sotre_key_the_same() {
-                // Try to get ares price.
-                match Self::ares_price_worker(block_number) {
-                    Ok(v) => log::info!("Ares price at work : {:?}", v),
-                    Err(e) => log::warn!("ERROR:: Ares price has a problem : {:?}", e),
+
+            let block_author = Self::get_block_author();
+
+            // let validators = T::ValidatorSet::validators();
+            // let author_info = &validators[author as usize];
+            // log::info!("author info == {:?}", author_info);
+
+            // let test_author :T::AccountId = <pallet_authorship::Pallet<T>>::author();
+
+            // log::info!(" ======AA======= LIN DEBUG:: offchain_worker , author = {:?}", &test_author);
+            // let encode_data: Vec<u8> = test_author.encode();
+            // // let encode_data: Vec<u8> = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY".encode();
+            // assert!(32 == encode_data.len());
+            // // println!("encode_data = {:?}", encode_data);
+            // let raw: Result<[u8; 32], _> = encode_data.try_into();
+            // let raw_data = raw.unwrap();
+            // //
+            // let member_authority = T::MemberAuthority::unchecked_from(raw_data);
+            // log::info!(" ======AA======= LIN DEBUG:: offchain_worker , member_authority = {:?}", &member_authority);
+            // // --
+            // let is_member = T::Member::is_member(&member_authority);
+            // log::info!("======AA====== LIN DEBUG:: T::Member::is_member = {:?} ", &is_member);
+
+            // let test_author:T::ValidatorAuthority = test_author.into();
+            // let is_member = T::VMember::is_member(&test_author);
+            // log::info!("======BB====== LIN DEBUG:: T::Member::is_member = {:?} ", &is_member);
+
+
+
+            // let raw: Result<[u8; 32], _> = encode_data.try_into();
+            // if(raw.is_err()) {
+            //     // --- error
+            // }
+            // let author = T::MemberAuthority::unchecked_from(raw);
+            // let is_author = T::Member::is_member(&author);
+
+            match block_author {
+                None => { log::warn!(" Warn!!! not found author."); }
+                Some(author) => {
+                    log::info!("Ares price worker author {:?} ", &author);
+                    // if Self::are_block_author_and_sotre_key_the_same(<pallet_authorship::Pallet<T>>::author()) {
+                    if Self::are_block_author_and_sotre_key_the_same(author) {
+                        // Try to get ares price.
+                        match Self::ares_price_worker(block_number) {
+                            Ok(v) => log::info!("Ares price at work : {:?} ", v),
+                            Err(e) => log::warn!("ERROR:: Ares price has a problem : {:?}", e),
+                        }
+                    }
                 }
             }
+
 
             // // TODO:: develop Offchain request loading.
             // Self::fetch_local_price_request_info();
@@ -395,7 +448,7 @@ pub mod pallet {
     impl<T: Config> ValidateUnsigned for Pallet<T>
         where sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
               u64: From<<T as frame_system::Config>::BlockNumber>,
-        <T as frame_system::Config>::AccountId: From<<<T as pallet::Config>::ValidatorSet as frame_support::traits::ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId>
+              // <T as frame_system::Config>::AccountId: From<<<T as pallet::Config>::ValidatorSet as frame_support::traits::ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId>,
     {
         type Call = Call<T>;
 
@@ -408,25 +461,45 @@ pub mod pallet {
             if let Call::submit_price_unsigned_with_signed_payload(
                 ref payload, ref signature,
             ) = call {
-                // Get all validators.
-                let current_validators = T::ValidatorSet::validators();
 
-                // Check Signer in validator group.
-                let mut find_validator = !T::NeedVerifierCheck::get() ; // Self::get_default_find_validator_bool();
-                for validator in current_validators {
-                    log::info!("=============== Loop {:?} Signer {:?}", validator.clone(), payload.public.clone() );
-                    let account : T::AccountId = <T as SigningTypes>::Public::into_account( payload.public.clone());
-                    let validator_account : T::AccountId = validator.into();
-                    log::info!("=============== account {:?} validator_account {:?}", account.clone(), validator_account.clone() );
-                    if account == validator_account {
-                        find_validator = true;
-                    }
+                // log::info!("RUN ==================== 1");
+                // let worker_ownerid_list = T::AuthorityAres::all();
+                // log::info!("RUN ==================== 2");
+
+                // TODO::----------- check need this. begin
+                // Get all validators.
+                // let current_validators = T::ValidatorSet::validators();
+                //
+                // // Check Signer in validator group.
+                // let mut find_validator = !T::NeedVerifierCheck::get() ; // Self::get_default_find_validator_bool();
+                // for validator in current_validators {
+                //     log::info!("=============== Loop {:?} Signer {:?}", validator.clone(), payload.public.clone() );
+                //     let account : T::AccountId = <T as SigningTypes>::Public::into_account( payload.public.clone());
+                //     let validator_account : T::AccountId = validator.into();
+                //     log::info!("=============== account {:?} validator_account {:?}", account.clone(), validator_account.clone() );
+                //     if account == validator_account {
+                //         find_validator = true;
+                //     }
+                // }
+
+                let mut find_validator = !T::NeedVerifierCheck::get() ;
+                if false == find_validator {
+                    // check exists
+                    // let encode_data: Vec<u8> = payload.public.encode();
+                    let validator_authority:T::ValidatorAuthority = <T as SigningTypes>::Public::into_account( payload.public.clone()).into();
+                    find_validator = T::VMember::is_member(&validator_authority);
                 }
 
                 if !find_validator {
+                    log::info!(" ===== InvalidTransaction::BadProof =====");
                     return InvalidTransaction::BadProof.into();
                 }
 
+                // let payload_account : T::AccountId = <T as SigningTypes>::Public::into_account( payload.public.clone());
+                // log::info!(" payload_account = {:?} ", payload_account);
+                // if !Self::are_block_author_and_sotre_key_the_same(payload_account) {
+                //     return InvalidTransaction::BadProof.into();
+                // }
 
                 let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
                 if !signature_valid {
@@ -641,9 +714,12 @@ impl<T: SigningTypes> SignedPayload<T> for PricePayload<T::Public, T::BlockNumbe
 
 impl<T: Config> Pallet<T>
     where sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
-          u64: From<<T as frame_system::Config>::BlockNumber>
+          u64: From<<T as frame_system::Config>::BlockNumber>,
+          // <T as frame_system::Config>::AccountId: From<<<T as pallet::Config>::ValidatorSet as Trait>::ValidatorId>,
+                                    // <<T as pallet::Config>::ValidatorSet as Trait>::ValidatorId`
+
 {
-    fn are_block_author_and_sotre_key_the_same() -> bool {
+    fn are_block_author_and_sotre_key_the_same(block_author: T::AccountId) -> bool {
         let mut is_same = !T::NeedVerifierCheck::get(); // Self::get_default_author_save_bool();
         let worker_ownerid_list = T::AuthorityAres::all();
         for ownerid in worker_ownerid_list.iter() {
@@ -652,17 +728,16 @@ impl<T: Config> Pallet<T>
             // extract AccountId32 from store keys
             let owner_account_id32 = AccountId32::new(a);
             // get Block owner info
-            let block_author = <pallet_authorship::Pallet<T>>::author();
+            // let block_author = <pallet_authorship::Pallet<T>>::author();
 
             // on debug!
             log::info!("Checking ... owner_account_id32 == block_author.into()");
             let test_into: AccountId32 = block_author.clone().into();
             log::info!("{:?} == {:?}", owner_account_id32.clone(), test_into);
             // debug end.
-            if owner_account_id32 == block_author.into() {
+            if owner_account_id32 == block_author.clone().into() {
                 is_same = true;
             }
-
         }
         is_same
     }
@@ -794,6 +869,15 @@ impl<T: Config> Pallet<T>
         [domain, sub_path].concat()
     }
 
+    fn get_block_author() -> Option<T::AccountId> {
+        let digest = <frame_system::Pallet<T>>::digest();
+        let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+        <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests)
+        // let author = if let Some(author) = <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests) {
+        //     Some(author)
+        // };
+        // None
+    }
     //
     // fn fetch_local_price_request_info() -> Result<(), Error<T>> {
     //
@@ -1168,6 +1252,7 @@ impl<T: Config> Pallet<T>
 
         // Make u64 with fraction length
         // let result_price = Self::format_price_fraction_to_u64(price_value.clone(), param_length);
+        log::info!(" TO=DEBUG:: price::");
         let result_price = JsonNumberValue::new(price_value.clone()).toPrice(param_length);
 
         // A price of 0 means that the correct result of the data is not obtained.
@@ -1445,6 +1530,34 @@ impl<T: Config> Pallet<T>
         //     <AresAvgPrice<T>>::insert(key_str.clone(), (0, 0));
         // }
     }
+
+    // fn get_block_author() -> Option<<<T as pallet::Config>::ValidatorSet as frame_support::traits::ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId>
+    // {
+    //     let digest = <frame_system::Pallet<T>>::digest();
+    //     let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+    //     let author = if let Some(author) = <T as pallet::Config>::FindAuthor::find_author(pre_runtime_digests) {
+    //         author
+    //     } else {
+    //         log::info!("!!!!!!!!!!!!!! find author bad");
+    //         Default::default()
+    //     };
+    //     log::info!("author index == {:?}", author);
+    //
+    //     let validators = T::VMember
+    //     let author_index = author as usize;
+    //     if validators.len() <= author_index {
+    //         return None;
+    //     }
+    //
+    //     Some(validators[author as usize])
+    //
+    //     // let encode_data = validators[author as usize];
+    //     //
+    //     // Some(encode_data.into())
+    //     // let author_info = &validators[author as usize];
+    //     // log::info!("author info == {:?}", author_info);
+    // }
+
 
     //
     fn clear_price_storage_data(price_key: Vec<u8>) {

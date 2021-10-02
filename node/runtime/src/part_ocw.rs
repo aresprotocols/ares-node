@@ -1,5 +1,7 @@
 use super::*;
 use pallet_ocw;
+use frame_support::traits::FindAuthor;
+use frame_support::ConsensusEngineId;
 
 // An index to a block.
 pub type BlockNumber = u32;
@@ -22,7 +24,12 @@ impl pallet_ocw::Config for Runtime {
     type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
-    type ValidatorSet = Historical;
+    // TODO:: will be remove
+    // type ValidatorSet = Historical;
+
+    // type FindAuthor = staking_extend::OcwFindAuthor<Babe, Self> ; // OcwFindAuthor<Babe>;// Babe;
+    type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self,Babe>;
+
     // type PriceVecMaxSize = PriceVecMaxSize;
     // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
@@ -30,7 +37,59 @@ impl pallet_ocw::Config for Runtime {
     type FractionLengthNum = FractionLengthNum;
     type CalculationKind = CalculationKind;
     type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, TechnicalCollective> ; // frame_system::EnsureRoot<AccountId>;
+
+    // type MemberAuthority = sp_consensus_babe::AuthorityId ;
+    // type Member = Babe;
+
+    type ValidatorAuthority = <Self as frame_system::Config>::AccountId;
+    type VMember = StakingExtend;
+    // type VMember = MemberExtend;
+
 }
+
+// const TEST_ID: ConsensusEngineId = [1, 2, 3, 4];
+// pub struct OcwFindAuthor<Inner>(sp_std::marker::PhantomData<Inner>);
+// impl <Inner: FindAuthor<u32>> FindAuthor<u32> for OcwFindAuthor<Inner> {
+//     fn find_author<'a, I>(digests: I) -> Option<u32> where
+//         I: 'a + IntoIterator<Item=(ConsensusEngineId, &'a [u8])>
+//     {
+//         log::info!("RUN OcwFindAuthor<Inner> = Bebing.");
+//         let author_index =  Inner::find_author(digests);
+//         log::info!("RUN OcwFindAuthor<Inner> = Value = {:?} ", author_index);
+//         author_index
+//         // for (id, data) in digests {
+//         //     if id == TEST_ID {
+//         //         return AccountId::decode(&mut &data[..]).ok();
+//         //     }
+//         // }
+//         // None
+//     }
+// }
+
+// pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+// impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
+// for FindAccountFromAuthorIndex<T, Inner>
+// {
+//     // fn find_author<'a, I>(digests: I) -> Option<T::ValidatorId>
+//     //     where I: 'a + IntoIterator<Item=(ConsensusEngineId, &'a [u8])>
+//     // {
+//     //     let i = Inner::find_author(digests)?;
+//     //
+//     //     let validators = <Module<T>>::validators();
+//     //     validators.get(i as usize).map(|k| k.clone())
+//     // }
+//
+//     fn find_author<'a, I>(digests: I) -> Option<AccountId> where
+//         I: 'a + IntoIterator<Item=(ConsensusEngineId, &'a [u8])>
+//     {
+//         for (id, data) in digests {
+//             if id == TEST_ID {
+//                 return AccountId::decode(&mut &data[..]).ok();
+//             }
+//         }
+//         None
+//     }
+// }
 
 //
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

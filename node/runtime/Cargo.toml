@@ -25,6 +25,7 @@ sp-consensus-babe = { version = "0.10.0-dev", default-features = false, git = "h
 sp-block-builder = { git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08", default-features = false, version = "4.0.0-dev"}
 sp-inherents = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 node-primitives = { version = "2.0.0", default-features = false, path = "../primitives" }
+#node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 sp-offchain = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 sp-core = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
 sp-std = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
@@ -96,6 +97,8 @@ pallet-vesting = { version = "4.0.0-dev", default-features = false, git = "https
 template = { version = "2.0.0", default-features = false, package = "pallet-template", path= "../../pallets/template" }
 pallet-ares = { version = "3.0.0", default-features = false, package = "pallet-ares", path= "../../pallets/pallet-ares" }
 pallet-ocw = { version = "3.0.0", default-features = false,  package = "pallet-ocw", path= "../../pallets/pallet-ocw" }
+staking-extend = { version = "3.0.0", default-features = false,  package = "staking-extend", path= "../../pallets/staking-extend" }
+member-extend = { version = "3.0.0", default-features = false,  package = "member-extend", path= "../../pallets/member-extend" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
@@ -171,6 +174,8 @@ std = [
 	"log/std",
 	"frame-try-runtime/std",
 	"sp-npos-elections/std",
+	"member-extend/std",
+	"staking-extend/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
