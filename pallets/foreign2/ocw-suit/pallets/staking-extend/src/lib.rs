@@ -45,41 +45,4 @@ pub mod pallet {
 			})
 		}
 	}
-
-	pub struct OcwFindAuthor<Inner, T>(sp_std::marker::PhantomData<(Inner, T)>);
-	impl <T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId> for OcwFindAuthor<Inner, T>
-		// where T::ValidatorId: From<&<<T as pallet::Config>::ValidatorSet as ValidatorSet<<T as pallet::Config>::ValidatorId>>::ValidatorId>
-	{
-		fn find_author<'a, I>(digests: I) -> Option<T::ValidatorId> where
-			I: 'a + IntoIterator<Item=(ConsensusEngineId, &'a [u8])>
-		{
-			log::info!("RUN OcwFindAuthor<Inner> = Bebing.");
-			let author_index =  Inner::find_author(digests);
-			match author_index {
-				None => { return None; }
-				Some(index) => {
-					let validator_list = T::ValidatorSet::validators().clone();
-					let validator = validator_list.get(index as usize);
-					// return validator;
-					log::info!(" ===== LINDEBUG:: validator = ==== {:?}", validator);
-					if validator.is_some() {
-						let one_of_set = validator.unwrap();
-						// let validator: &T::ValidatorSet<<T as pallet::Config>::ValidatorId>>::ValidatorId = T::ValidatorId::from_ref(one_of_set);
-						// let validator = *validator;
-
-						// return Some(validator);
-						// let account_id = validator.into_account();
-						// return Some(validator.into());
-					}
-					None
-					// <T::ValidatorSet as ValidatorSet<<T as frame_system::Config>::AccountId>>::ValidatorId
-					// validator_list[index as usize];
-					// None
-				}
-			}
-			// log::info!("RUN OcwFindAuthor<Inner> = Value = {:?} ", author_index);
-			// author_index
-		}
-	}
-
 }

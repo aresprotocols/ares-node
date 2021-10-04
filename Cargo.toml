@@ -12,11 +12,16 @@ members = [
     "node/rpc-client",
     "node/runtime",
     "node/testing",
-    "pallets/pallet-ocw",
     "pallets/pallet-ares",
     "pallets/template",
     "utils/chain-spec-builder",
     "utils/subkey",
+
+#    "pallets/foreign",
+
+    "pallets/foreign/ocw-suit/pallets/pallet-ocw",
+    "pallets/foreign/ocw-suit/pallets/staking-extend",
+    "pallets/foreign/ocw-suit/pallets/member-extend",
 ]
 
 [profile.dev.package]

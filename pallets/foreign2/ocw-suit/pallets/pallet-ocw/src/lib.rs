@@ -116,7 +116,7 @@ pub mod pallet {
 
     /// This pallet's configuration trait
     #[pallet::config]
-    pub trait Config: CreateSignedTransaction<Call<Self>> + pallet_authorship::Config + frame_system::Config
+    pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config
         where sp_runtime::AccountId32: From<<Self as frame_system::Config>::AccountId>,
               u64: From<<Self as frame_system::Config>::BlockNumber>
     {
@@ -1358,7 +1358,8 @@ impl<T: Config> Pallet<T>
         // let current_block = <system::Pallet<T>>::block_number();
 
         <PricesTrace<T>>::mutate(|prices_trace| {
-            let author = <pallet_authorship::Pallet<T>>::author();
+            // let author = <pallet_authorship::Pallet<T>>::author();
+            let author = Self::get_block_author().unwrap();
             let MAX_LEN: usize = max_len.clone() as usize;
             let price_trace_len = prices_trace.len();
             if price_trace_len < MAX_LEN {

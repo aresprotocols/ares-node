@@ -7,7 +7,7 @@ pwasm-libc/target/
 pwasm-alloc/Cargo.lock
 pwasm-libc/Cargo.lock
 node/runtime/wasm/target/
-**/*.will_del
+
 **/._*
 **/.criterion/
 .vscode
@@ -24,6 +24,9 @@ rls*.log
 **/hfuzz_workspace/
 .cargo/
 .cargo-remote.toml
+**/*.will_del
 **/*.curl
 **/*.private.md
 **/*.private.bak
+/pallets/foreign
+/pallets/foreign2
