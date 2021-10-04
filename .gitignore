@@ -28,5 +28,5 @@ rls*.log
 **/*.curl
 **/*.private.md
 **/*.private.bak
-/pallets/foreign
-/pallets/foreign2
+**/foreign
+**/foreign3
