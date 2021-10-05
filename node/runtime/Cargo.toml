@@ -97,9 +97,13 @@ pallet-vesting = { version = "4.0.0-dev", default-features = false, git = "https
 template = { version = "2.0.0", default-features = false, package = "pallet-template", path= "../../pallets/template" }
 pallet-ares = { version = "3.0.0", default-features = false, package = "pallet-ares", path= "../../pallets/pallet-ares" }
 
-pallet-ocw = { version = "3.0.1", default-features = false,  package = "pallet-ocw", path= "../../pallets/foreign/ocw-suit/pallets/pallet-ocw" }
-staking-extend = { version = "3.0.0", default-features = false,  package = "staking-extend", path= "../../pallets/foreign/ocw-suit/pallets/staking-extend" }
-member-extend = { version = "3.0.0", default-features = false,  package = "member-extend", path= "../../pallets/foreign/ocw-suit/pallets/member-extend" }
+#pallet-ocw = { version = "3.0.3", default-features = false,  package = "pallet-ocw", path= "../../pallets/pallet-ocw" }
+#staking-extend = { version = "3.0.2", default-features = false,  package = "staking-extend", path= "../../pallets/staking-extend" }
+#member-extend = { version = "3.0.2", default-features = false,  package = "member-extend", path= "../../pallets/member-extend" }
+
+pallet-ocw = {default-features = false, git = 'https://github.com/aresprotocols/ocw-suit.git', branch = 'master', version = '3.0.3'}
+staking-extend =  {default-features = false, git = 'https://github.com/aresprotocols/ocw-suit.git', branch = 'master', version = '3.0.2'}
+member-extend = {default-features = false, git = 'https://github.com/aresprotocols/ocw-suit.git', branch = 'master', version = '3.0.2'}
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "monthly-2021-08" }
@@ -175,6 +179,8 @@ std = [
 	"log/std",
 	"frame-try-runtime/std",
 	"sp-npos-elections/std",
+
+	"pallet-ocw/std",
 	"member-extend/std",
 	"staking-extend/std",
 ]

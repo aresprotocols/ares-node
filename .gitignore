@@ -29,4 +29,6 @@ rls*.log
 **/*.private.md
 **/*.private.bak
 **/foreign
-**/foreign3
+**/pallets/pallet-ocw
+**/pallets/staking-extend
+**/pallets/member-extend

@@ -17,6 +17,8 @@ pub mod pallet {
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
+	type AccountId = u64;// Config::AccountId;
+
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -64,6 +66,8 @@ pub mod pallet {
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T:Config> Pallet<T> {
+
+
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
@@ -72,6 +76,8 @@ pub mod pallet {
 			// This function will return an error if the extrinsic is not signed.
 			// https://substrate.dev/docs/en/knowledgebase/runtime/origin
 			let who = ensure_signed(origin)?;
+
+			type a = AccountId;
 
 			// Update storage.
 			<Something<T>>::put(something);
@@ -101,4 +107,6 @@ pub mod pallet {
 			}
 		}
 	}
+
+
 }

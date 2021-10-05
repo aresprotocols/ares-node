@@ -3717,7 +3717,8 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
 name = "member-extend"
-version = "3.0.0"
+version = "3.0.2"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=master#357b2e360574d8a763092b13811a7bd2edfbc84c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5189,7 +5190,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-ocw"
-version = "3.0.1"
+version = "3.0.3"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=master#357b2e360574d8a763092b13811a7bd2edfbc84c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5206,7 +5208,6 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
- "sp-staking",
  "sp-std",
 ]
 
@@ -9018,7 +9019,8 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staking-extend"
-version = "3.0.0"
+version = "3.0.2"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=master#357b2e360574d8a763092b13811a7bd2edfbc84c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10121,7 +10123,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.7.3",
+ "rand 0.3.23",
  "static_assertions",
 ]
 
