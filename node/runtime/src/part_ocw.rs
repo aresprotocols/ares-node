@@ -2,6 +2,7 @@ use super::*;
 use pallet_ocw;
 use frame_support::traits::FindAuthor;
 use frame_support::ConsensusEngineId;
+use frame_support::sp_runtime::MultiAddress;
 
 // An index to a block.
 pub type BlockNumber = u32;
@@ -12,7 +13,7 @@ parameter_types! {
 	// pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
     pub const NeedVerifierCheck: bool = true;
-    pub const UseOnChainPriceRequest: bool = true;
+    // pub const UseOnChainPriceRequest: bool = true;
     pub const FractionLengthNum: u32 = 2;
     pub const CalculationKind: u8 = 1;
 }
@@ -20,8 +21,8 @@ parameter_types! {
 impl pallet_ocw::Config for Runtime {
     type Event = Event;
     type Call = Call;
-    type AuthorityId = pallet_ocw::crypto::OcwAuthId ;
-    type AuthorityAres = pallet_ocw::sr25519::AuthorityId;
+    type AuthorityId = pallet_ocw::crypto::OcwAuthId<Self> ;
+    type AuthorityAres = pallet_ocw::crypto::AuthorityId; // pallet_ocw::sr25519::AuthorityId;
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
 
@@ -34,7 +35,7 @@ impl pallet_ocw::Config for Runtime {
     // type PriceVecMaxSize = PriceVecMaxSize;
     // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
-    type UseOnChainPriceRequest = UseOnChainPriceRequest;
+    // type UseOnChainPriceRequest = UseOnChainPriceRequest;
     type FractionLengthNum = FractionLengthNum;
     type CalculationKind = CalculationKind;
     type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, TechnicalCollective> ; // frame_system::EnsureRoot<AccountId>;
@@ -131,7 +132,8 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
             })
             .ok()?;
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-        let address = Indices::unlookup(account);
+        // let address = Indices::unlookup(account);
+        let address = MultiAddress::Id(account);
         let (call, extra, _) = raw_payload.deconstruct();
         Some((call, (address, signature.into(), extra)))
     }

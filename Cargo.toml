@@ -17,7 +17,7 @@ members = [
     "utils/chain-spec-builder",
     "utils/subkey",
 
-#    "pallets/pallet-ocw",
+    "pallets/pallet-ocw",
 #    "pallets/staking-extend",
 #    "pallets/member-extend",
 ]
