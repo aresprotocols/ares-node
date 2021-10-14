@@ -12,7 +12,7 @@ parameter_types! {
     // pub const MaxCountOfPerRequest: u8 = 2;
 	// pub const UnsignedInterval: u32 = 10;
 	pub const UnsignedPriority: u64 = 1 << 20;
-    pub const NeedVerifierCheck: bool = true;
+    pub const NeedVerifierCheck: bool = false;
     // pub const UseOnChainPriceRequest: bool = true;
     pub const FractionLengthNum: u32 = 2;
     pub const CalculationKind: u8 = 1;
@@ -26,22 +26,13 @@ impl pallet_ocw::Config for Runtime {
     // type UnsignedInterval = UnsignedInterval;
     type UnsignedPriority = UnsignedPriority;
 
-    // TODO:: will be remove
-    // type ValidatorSet = Historical;
-
     // type FindAuthor = staking_extend::OcwFindAuthor<Babe, Self> ; // OcwFindAuthor<Babe>;// Babe;
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self,Babe>;
 
-    // type PriceVecMaxSize = PriceVecMaxSize;
-    // type MaxCountOfPerRequest = MaxCountOfPerRequest;
     type NeedVerifierCheck = NeedVerifierCheck;
-    // type UseOnChainPriceRequest = UseOnChainPriceRequest;
     type FractionLengthNum = FractionLengthNum;
     type CalculationKind = CalculationKind;
     type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, TechnicalCollective> ; // frame_system::EnsureRoot<AccountId>;
-
-    // type MemberAuthority = sp_consensus_babe::AuthorityId ;
-    // type Member = Babe;
 
     type ValidatorAuthority = <Self as frame_system::Config>::AccountId;
     type VMember = StakingExtend;

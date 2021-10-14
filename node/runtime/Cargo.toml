@@ -97,7 +97,7 @@ pallet-vesting = { version = "4.0.0-dev", default-features = false, git = "https
 template = { version = "2.0.0", default-features = false, package = "pallet-template", path= "../../pallets/template" }
 pallet-ares = { version = "3.0.0", default-features = false, package = "pallet-ares", path= "../../pallets/pallet-ares" }
 
-pallet-ocw = { version = "3.0.8", default-features = false,  package = "pallet-ocw", path= "../../pallets/pallet-ocw" }
+pallet-ocw = { version = "3.0.10", default-features = false,  package = "pallet-ocw", path= "../../pallets/pallet-ocw" }
 #staking-extend = { version = "3.0.2", default-features = false,  package = "staking-extend", path= "../../pallets/staking-extend" }
 #member-extend = { version = "3.0.2", default-features = false,  package = "member-extend", path= "../../pallets/member-extend" }
 
