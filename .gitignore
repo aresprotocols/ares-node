@@ -27,8 +27,10 @@ rls*.log
 **/*.will_del
 **/*.curl
 **/*.private.md
+**/*.private.sh
 **/*.private.bak
 **/foreign
 **/pallets/pallet-ocw
 **/pallets/staking-extend
 **/pallets/member-extend
+**/private.scripts
