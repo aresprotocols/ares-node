@@ -6,11 +6,7 @@ use frame_support::traits::OneSessionHandler;
 impl staking_extend::Config for Runtime {
     type ValidatorId = AccountId ; //<Self as frame_system::Config>::AccountId;
     type ValidatorSet = Historical;
-    // type AuthorityId = <Aura as OneSessionHandler<AccountId>>::Key;
     type AuthorityId = pallet_babe::AuthorityId ;// <AresOracle as ares_oracle::Config>::AuthorityAres ;// AuraId;
-    // type WithSessionHandler = Aura;
-    // type IStakingNpos = Self;
-    // type DebugError = <<Self as staking_extend::Config>::ElectionProvider as ElectionProvider<<Self as frame_system::Config>::AccountId, <Self as frame_system::Config>::BlockNumber>>::Error;
     type DataProvider = Staking;
     type ElectionProvider = ElectionProviderMultiPhase;
     type OnChainAccuracy = Perbill;

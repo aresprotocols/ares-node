@@ -38,59 +38,46 @@ impl ares_oracle::babe_handler::Config for Runtime {
 impl ares_oracle::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
-	type OffchainAppCrypto = ares_oracle::crypto::OcwAuthId<Self>;
+	// type OffchainAppCrypto = ares_oracle::crypto::OcwAuthId<Self>;
+	type OffchainAppCrypto = ares_oracle::AresCrypto::<BabeId>;
+
 	// type AuthorityAres = ares_oracle::crypto::AuthorityId;
 	type AuthorityAres = BabeId;
-	// type CheckDeposit = AresChallenge;
-	// type UnsignedInterval = UnsignedInterval;
 	type UnsignedPriority = UnsignedPriority;
-	// type FindAuthor = staking_extend::OcwFindAuthor<Babe, Self> ; // OcwFindAuthor<Babe>;// Babe;
-	// type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self,Babe>;
-	// type FindAuthor =
-	// 	OcwFindAccountFromAuthorIndex<Self, pallet_aura::FindAccountFromAuthorIndex<Self, Aura>>;
-	type FindAuthor = OcwFindAccountFromAuthorIndex<Self, ares_oracle::babe_handler::FindAccountFromAuthorIndex<Self, Babe>>;
-
+	type FindAuthor = ares_oracle::FindAresAccountFromAuthority<Self, ares_oracle::babe_handler::FindAccountFromAuthorIndex<Self, Babe>>;
 	type FractionLengthNum = FractionLengthNum;
 	type CalculationKind = CalculationKind;
-	// type RequestOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, TechnicalCollective> ; // frame_system::EnsureRoot<AccountId>;
 	type RequestOrigin = EnsureRootOrHalfTechnicalCollective ;
-	// type RequestOrigin = frame_system::EnsureRoot<AccountId>;
-	type ValidatorAuthority = <Self as frame_system::Config>::AccountId;
-	// type VMember = StakingExtend;
+	// type ValidatorAuthority = <Self as frame_system::Config>::AccountId;
 	type VMember = MemberExtend;
 	type AuthorityCount = ares_oracle::babe_handler::Pallet<Runtime>;
 	type OracleFinanceHandler = OracleFinance;
 	type AresIStakingNpos = Self;
 }
 
-
-
-/// Wraps the author-scraping logic for consensus engines that can recover
-/// the canonical index of an author. This then transforms it into the
-/// registering account-ID of that session key index.
-pub struct OcwFindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
-
-impl<T: Config, Inner: FindAuthor<BabeId>> FindAuthor<T::AccountId>
-	for OcwFindAccountFromAuthorIndex<T, Inner>
-where
-	sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
-	u64: From<<T as frame_system::Config>::BlockNumber>,
-	<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
-{
-	fn find_author<'a, I>(digests: I) -> Option<T::AccountId>
-	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
-	{
-		let find_auraid = Inner::find_author(digests)?;
-
-		let mut a = [0u8; 32];
-		a[..].copy_from_slice(&find_auraid.to_raw_vec());
-		// extract AccountId32 from store keys
-		let owner_account_id32 = sp_runtime::AccountId32::new(a);
-		let authro_account_id = owner_account_id32.clone().into();
-		Some(authro_account_id)
-	}
-}
+// pub struct OcwFindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+//
+// impl<T: Config, Inner: FindAuthor<BabeId>> FindAuthor<T::AccountId>
+// 	for OcwFindAccountFromAuthorIndex<T, Inner>
+// where
+// 	sp_runtime::AccountId32: From<<T as frame_system::Config>::AccountId>,
+// 	u64: From<<T as frame_system::Config>::BlockNumber>,
+// 	<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
+// {
+// 	fn find_author<'a, I>(digests: I) -> Option<T::AccountId>
+// 	where
+// 		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+// 	{
+// 		let find_auraid = Inner::find_author(digests)?;
+//
+// 		let mut a = [0u8; 32];
+// 		a[..].copy_from_slice(&find_auraid.to_raw_vec());
+// 		// extract AccountId32 from store keys
+// 		let owner_account_id32 = sp_runtime::AccountId32::new(a);
+// 		let authro_account_id = owner_account_id32.clone().into();
+// 		Some(authro_account_id)
+// 	}
+// }
 
 // pub struct OcwFindAuthor<Inner>(sp_std::marker::PhantomData<Inner>);
 
@@ -170,7 +157,7 @@ where
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 		);
 
-		// TODO::Sign one of your own data, the signed data is called raw_payload
+		//
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);
