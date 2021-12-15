@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "ares-oracle"
-version = "3.3.5"
+version = "3.4.1"
 dependencies = [
  "ares-oracle-provider-support",
  "frame-support",
@@ -3321,7 +3321,7 @@ dependencies = [
 
 [[package]]
 name = "member-extend"
-version = "3.0.3"
+version = "3.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
