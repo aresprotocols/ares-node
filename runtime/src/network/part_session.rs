@@ -11,20 +11,12 @@ parameter_types! {
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		// pub aura: Aura,
 		pub babe: Babe,
 		pub grandpa: Grandpa,
+		pub ares: AresOracle,
 		pub authority_discovery: AuthorityDiscovery,
 	}
 }
-// impl_opaque_keys! {
-// 	pub struct SessionKeys {
-// 		pub grandpa: Grandpa,
-// 		pub babe: Babe,
-// 		pub im_online: ImOnline,
-// 		pub authority_discovery: AuthorityDiscovery,
-// 	}
-// }
 
 impl pallet_session::Config for Runtime {
 	type Event = Event;
@@ -32,8 +24,6 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	// type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	// type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
