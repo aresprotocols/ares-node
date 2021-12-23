@@ -117,7 +117,8 @@ dependencies = [
 
 [[package]]
 name = "ares-oracle"
-version = "3.4.1"
+version = "3.6.1"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "ares-oracle-provider-support",
  "frame-support",
@@ -147,10 +148,12 @@ dependencies = [
 [[package]]
 name = "ares-oracle-provider-support"
 version = "3.0.1"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "frame-support",
  "lite-json",
  "parity-scale-codec",
+ "sp-application-crypto",
  "sp-io",
  "sp-std 4.0.0-dev",
 ]
@@ -1917,6 +1920,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 name = "gladios-node"
 version = "3.0.0-monthly-2021-09+1"
 dependencies = [
+ "ares-oracle-provider-support",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -1927,6 +1931,7 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "rand 0.8.4",
  "runtime-gladios-node",
+ "runtime-pioneer-node",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -3322,6 +3327,7 @@ dependencies = [
 [[package]]
 name = "member-extend"
 version = "3.1.0"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3794,6 +3800,7 @@ checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
 [[package]]
 name = "oracle-finance"
 version = "3.1.1"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3820,6 +3827,7 @@ dependencies = [
 [[package]]
 name = "pallet-ares-challenge"
 version = "3.0.1"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3838,6 +3846,7 @@ dependencies = [
 [[package]]
 name = "pallet-ares-collective"
 version = "4.0.0-dev"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4078,6 +4087,7 @@ dependencies = [
 [[package]]
 name = "pallet-price-estimates"
 version = "3.0.1"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "ares-oracle",
  "frame-support",
@@ -4135,6 +4145,7 @@ dependencies = [
 [[package]]
 name = "pallet-session"
 version = "4.0.0-dev"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5222,6 +5233,73 @@ name = "runtime-gladios-node"
 version = "3.0.0"
 dependencies = [
  "ares-oracle",
+ "ares-oracle-provider-support",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "hex-literal",
+ "log",
+ "member-extend",
+ "oracle-finance",
+ "pallet-ares-challenge",
+ "pallet-ares-collective",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances",
+ "pallet-bounties",
+ "pallet-collective",
+ "pallet-democracy",
+ "pallet-election-provider-multi-phase",
+ "pallet-elections-phragmen",
+ "pallet-grandpa",
+ "pallet-indices",
+ "pallet-multisig",
+ "pallet-offences",
+ "pallet-price-estimates",
+ "pallet-proxy",
+ "pallet-randomness-collective-flip",
+ "pallet-scheduler",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-authority-discovery",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-inherents",
+ "sp-npos-elections",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std 4.0.0-dev",
+ "sp-transaction-pool",
+ "sp-version",
+ "staking-extend",
+ "static_assertions",
+ "substrate-wasm-builder",
+]
+
+[[package]]
+name = "runtime-pioneer-node"
+version = "3.0.0"
+dependencies = [
+ "ares-oracle",
+ "ares-oracle-provider-support",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
@@ -7401,6 +7479,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "staking-extend"
 version = "3.0.4"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
 dependencies = [
  "ares-oracle-provider-support",
  "frame-election-provider-support",
@@ -8691,3 +8770,4 @@ dependencies = [
 [[patch.unused]]
 name = "pallet-session-benchmarking"
 version = "4.0.0-dev"
+source = "git+https://github.com/aresprotocols/ocw-suit.git?branch=monthly-2021-09+1#3bbfee0dc01ee00273c09c1450c146364c8f209d"
